@@ -12,13 +12,7 @@ print(line_sep)
 for fpath in experiment_spec_fpaths:
     specs = import_params(fpath)
     logpath = setup_log_dir(fpath)
+    specs.logpath = logpath
     print("Running experiment {}: \n\t{}".format(fpath.split('/')[-1],specs.experiment_description))
     print("Specs for experiment are: \n{}\n{}".format(line_sep,yaml.dump(specs)))
-    if specs.experiment_type == 'agent':
-        specs.environment_params['logfile'] = logpath
-        specs.agent_params['logfile'] = logpath
-        specs.environment.set_params(specs.environment_params)
-        specs.runner.set_params(specs.agent_params)
-        specs.runner.run(specs.environment,specs.n_steps)
-    params = specs
-
+    specs.experiment_type.run(specs)

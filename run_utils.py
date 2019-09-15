@@ -1,8 +1,10 @@
 from agents import *
 from environments import *
+from experiment_types import *
 import yaml
 from argparse import Namespace
 import os
+import sys
 
 run_spec_file = 'run_spec.yaml'
 with open(run_spec_file, 'r') as input_stream:
@@ -15,6 +17,10 @@ def import_params(param_file):
         param_dict = yaml.safe_load(input_stream)
         if "experiment_description" not in param_dict.keys() or param_dict["experiment_description"] == '':
             raise(ValueError("No description specified for experiment '{}'. Please add 'experiment_description' to the experiment spec file.".format(param_file)))
+        # check the experiment type
+        # note that this only checks at the module, and not the class level.
+        if "experiment_type" not in param_dict.keys() or param_dict["experiment_type"].split('.')[0] not in sys.modules['experiment_types'].__all__:
+            raise(ValueError("Experiment type '{}' is not defined or unrecognized. Please define an experient type in the experiment_types module (see __init__.py for details)".format(param_dict["experiment_type"])))
         for param, param_val in param_dict.items():
             if param not in run_spec:
                 raise(ValueError("Param '{}' is not in the run spec. Please add it to run_spec.yaml.".format(param)))

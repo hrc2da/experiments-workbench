@@ -3,7 +3,7 @@
 experiment_description:
     This is an example experiment spec file.
 experiment_type:
-    agent
+    agent_experiment.AgentExperiment()
 runner:
     greedy_agent.GreedyAgent()
 environment:

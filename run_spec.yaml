@@ -2,7 +2,7 @@
 experiment_description:
   type: str
 experiment_type:
-  type: str
+  type: Object
 runner:
   type: Object
 # Set these if experiment type is agent
