@@ -16,3 +16,5 @@ environment_params:
 agent_params:
     agent_name: # just an example
         greedy_agent
+random_seed:
+    42

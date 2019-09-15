@@ -14,3 +14,5 @@ agent_params:
   type: dict
 environment_params:
   type: dict
+random_seed:
+  type: int
