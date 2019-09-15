@@ -1,0 +1,18 @@
+# Each spec file is in yaml format
+
+experiment_description:
+    This is an example experiment spec file.
+experiment_type:
+    agent
+runner:
+    greedy_agent.GreedyAgent()
+environment:
+    distopia_environment.DistopiaEnvironment()
+n_steps:
+    100
+environment_params:
+    env_name: # just an example
+        distopia 
+agent_params:
+    agent_name: # just an example
+        greedy_agent

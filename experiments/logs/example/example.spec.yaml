@@ -1,0 +1,9 @@
+agent_params:
+  agent_name: greedy_agent
+environment: distopia_environment.DistopiaEnvironment()
+environment_params:
+  env_name: distopia
+experiment_description: This is an example experiment spec file.
+experiment_type: agent
+n_steps: 100
+runner: greedy_agent.GreedyAgent()

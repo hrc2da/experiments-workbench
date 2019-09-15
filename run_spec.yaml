@@ -1,0 +1,16 @@
+# This file defines keys and types for a run spec
+experiment_description:
+  type: str
+experiment_type:
+  type: str
+runner:
+  type: Object
+# Set these if experiment type is agent
+environment:
+  type: Object
+n_steps:
+  type: int
+agent_params:
+  type: dict
+environment_params:
+  type: dict
