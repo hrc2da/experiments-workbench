@@ -1,5 +1,8 @@
 # hrcd-agents
+## Dependencies
+pyaml
 
+## Getting Started
 To define an experiment, create a `*.spec.yaml` file in the experiments directory. See the `experiments/examples directory` for an example.
 
 To run it, call `run_script.py`.
