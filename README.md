@@ -1,4 +1,5 @@
-# hrcd-agents
+# experiments-workbench
+A framework for running HRCD experiments.
 ## Dependencies
 pyaml
 
