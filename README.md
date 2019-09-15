@@ -6,8 +6,11 @@ pyaml
 
 ### Install
 `git clone https://github.com/hrc2da/experiments-workbench`
+
 `virtualenv -p python3 <venv name>`
+
 `. <venv name>/bin/activate`
+
 `pip install -r requirements.txt`
 
 ### Testing
