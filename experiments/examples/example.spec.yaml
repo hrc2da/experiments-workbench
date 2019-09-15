@@ -4,7 +4,7 @@ experiment_description:
     This is an example experiment spec file.
 experiment_type:
     agent_experiment.AgentExperiment()
-runner:
+agent:
     greedy_agent.GreedyAgent()
 environment:
     distopia_environment.DistopiaEnvironment()

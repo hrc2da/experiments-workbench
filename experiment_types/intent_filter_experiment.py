@@ -2,6 +2,16 @@ from experiment_types import Experiment
 
 class IntentFilterExperiment:
     def run(self, specs):
+        # load trajectory data
+
+        # split into train/test
+
+        # train model on training data
+
+        # test model on test data
+
+
+
         specs.environment_params['logfile'] = specs.logpath
         specs.agent_params['logfile'] = specs.logpath
         specs.environment.set_params(specs.environment_params)

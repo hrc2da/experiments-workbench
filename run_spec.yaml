@@ -3,7 +3,7 @@ experiment_description:
   type: str
 experiment_type:
   type: Object
-runner:
+agent:
   type: Object
 # Set these if experiment type is agent
 environment:
