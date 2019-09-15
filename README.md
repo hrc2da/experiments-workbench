@@ -14,7 +14,7 @@ pyaml
 `pip install -r requirements.txt`
 
 ### Testing
-To define an experiment, create a `*.spec.yaml` file in the experiments directory. See the `experiments/examples directory` for an example.
+To define an experiment, create a `*.spec.yaml` file in the experiments directory. See the `experiments/examples` directory for an example.
 
 If your experiment type is not yet defined, you need to write a class extending Experiment in `experiment_types`.
 
