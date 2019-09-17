@@ -9,17 +9,19 @@ agent:
 environment:
     distopia_environment.DistopiaEnvironment()
 n_steps:
-    2
+    5
 environment_params:
-    env_name: # just an example
-        distopia
-agent_params:
-    metrics: # just an example
+    metrics:
       - population
       - pvi
       - compactness
       - projected_votes
       - race
+    env_name: # just an example
+        distopia
+agent_params:
+    num_metrics: # just tell the agent how many metrics there are for assertion purposes
+      5
     task:
       - 0
       - 0

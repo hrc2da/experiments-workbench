@@ -6,4 +6,4 @@ class AgentExperiment:
         specs.agent_params['logfile'] = specs.logpath
         specs.environment.set_params(specs.environment_params)
         specs.agent.set_params(specs.agent_params)
-        specs.agent.run(specs.environment,specs.n_steps)
+        return specs.agent.run(specs.environment,specs.n_steps)
