@@ -38,12 +38,16 @@ def import_params(param_file):
     return Namespace(**param_dict)
 
 def setup_log_dir(spec_path):
-    fpath = spec_path.split('/')[:-1]
-    fname = spec_path.split('/')[-1].split('.')[0] # get the filename stripping out .spec.yaml
+    if os.name == 'nt':
+        fpath = spec_path.split('\\')[:-1]
+        fname = spec_path.split('\\')[-1].split('.')[0] # get the filename stripping out .spec.yaml
+    else:
+        fpath = spec_path.split('/')[:-1]
+        fname = spec_path.split('/')[-1].split('.')[0] # get the filename stripping out .spec.yaml
+
     log_path = os.path.join(*fpath,'logs',fname)
     if os.path.exists(log_path):
         raise("Experiment log for '{}' already exists! Please choose a unique name or delete the old log directory.".format(log_path))
     os.mkdir(log_path)
     os.rename(spec_path,os.path.join(log_path,fname + '.spec.yaml'))
     return log_path
-                

@@ -9,12 +9,22 @@ agent:
 environment:
     distopia_environment.DistopiaEnvironment()
 n_steps:
-    100
+    2
 environment_params:
     env_name: # just an example
         distopia
 agent_params:
-    agent_name: # just an example
-        greedy_agent
+    metrics: # just an example
+      - population
+      - pvi
+      - compactness
+      - projected_votes
+      - race
+    task:
+      - 0
+      - 0
+      - 0
+      - 1
+      - 0
 random_seed:
     42
