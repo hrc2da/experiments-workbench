@@ -60,6 +60,7 @@ class DistopiaEnvironment(Environment):
         self.coord_generator = self.gencoordinates(self.x_min, self.x_max, self.y_min, self.y_max)
         self.evaluator = VoronoiAgent()
         self.evaluator.load_data()
+        self.state = {}
 
     def set_params(self, specs_dict):
         metrics = specs_dict['metrics']
@@ -93,6 +94,9 @@ class DistopiaEnvironment(Environment):
         '''Define an array of metric names
         '''
         self.metrics = metrics
+
+    def take_step(self, new_state):
+        self.state = new_state
 
     def reset(self, initial=None, n_districts=8, max_blocks_per_district=5):
         '''Initialize the state randomly.

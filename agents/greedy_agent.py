@@ -123,15 +123,15 @@ class GreedyAgent(Agent):
             #     for block in self.state[district]:
             #         if block not in chosen_neighbor[district]:
             #             self.occupied.remove(block)
-            self.state = neighborhood[best_idx]
-            self.occupied = set(itertools.chain(*self.state.values()))
+            environment.take_step(neighborhood[best_idx])
+            self.occupied = set(itertools.chain(*environment.state.values()))
             if status is not None:
                 status.put('next')
             if logger is not None:
-                logger.write(str([time.perf_counter(), count, list(metrics[best_idx]), self.state]) + '\n')
+                logger.write(str([time.perf_counter(), count, list(metrics[best_idx]), environment.state]) + '\n')
             else:
                 mappend(metrics[best_idx])
-                dappend(self.state)
+                dappend(environment.state)
         if logger is not None:
             return "n_steps: {}, samples: {}, resets: {}, none_valids: {}, randoms: {}".format(n_steps, samples, resets, no_valids, randoms), self.reward_weights
         else:
