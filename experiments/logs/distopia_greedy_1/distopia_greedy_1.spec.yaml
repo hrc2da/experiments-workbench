@@ -4,9 +4,9 @@ agent_params:
   task:
   - 0
   - 0
-  - 0
   - 1
   - 0
+  - 1
 environment: distopia_environment.DistopiaEnvironment()
 environment_params:
   env_name: distopia
@@ -18,5 +18,5 @@ environment_params:
   - race
 experiment_description: Greedy agent, Distopia Environment
 experiment_type: agent_experiment.AgentExperiment()
-n_steps: 5
+n_steps: 10
 random_seed: 42

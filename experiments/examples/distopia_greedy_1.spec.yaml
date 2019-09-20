@@ -9,7 +9,7 @@ agent:
 environment:
     distopia_environment.DistopiaEnvironment()
 n_steps:
-    5
+    10
 environment_params:
     metrics:
       - population
@@ -25,8 +25,8 @@ agent_params:
     task:
       - 0
       - 0
-      - 0
       - 1
       - 0
+      - 1
 random_seed:
     42

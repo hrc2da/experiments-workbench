@@ -19,5 +19,11 @@ for fpath in experiment_spec_fpaths:
     logpath = setup_log_dir(fpath)
     specs.logpath = logpath
     print("Running experiment {}: \n\t{}".format(fpath.split('\\')[-1],specs.experiment_description))
+    metric_names = specs.environment_params['metrics']
     design, metric = specs.experiment_type.run(specs)
-    print("METRICS: " + str(metric))
+    for ind, m in enumerate(metric):
+        print('step number {}: '.format(ind))
+        for j, num in enumerate(m):
+            print("Metric {} has score of {}".format(metric_names[j], num))
+    # print("METRICS: " + str(metric))
+    # print("DESIGNS: " + str(design))
