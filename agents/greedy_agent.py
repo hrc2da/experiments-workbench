@@ -40,6 +40,8 @@ class GreedyAgent(Agent):
             mappend = metric_log.append
             design_log = []
             dappend = design_log.append
+            reward_log = []
+            rappend = reward_log.append
         while i < n_steps:
             i += 1
             if i % 50 == 0:
@@ -132,9 +134,10 @@ class GreedyAgent(Agent):
             else:
                 mappend(metrics[best_idx])
                 dappend(environment.state)
+                rappend(rewards[best_idx])
         if logger is not None:
             return "n_steps: {}, samples: {}, resets: {}, none_valids: {}, randoms: {}".format(n_steps, samples, resets, no_valids, randoms), self.reward_weights
         else:
             print("n_steps: {}, samples: {}, resets: {}, none_valids: {}, randoms: {}".format(n_steps, samples, resets, no_valids, randoms), self.reward_weights)
-            return design_log, metric_log
+            return design_log, metric_log, reward_log
 

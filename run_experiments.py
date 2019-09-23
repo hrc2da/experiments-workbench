@@ -30,12 +30,13 @@ for fpath in experiment_spec_fpaths:
     curr_time = datetime.datetime.now().strftime('%m_%d_%H_%M_%S')
     file_name = curr_time + '.json'
     metric_names = specs.environment_params['metrics']
-    design, metric = specs.experiment_type.run(specs)
+    design, metric, reward = specs.experiment_type.run(specs)
     for ind, m in enumerate(metric):
         this_step = {}
         this_step['step_no'] = ind
         this_step['metrics'] = m
         this_step['design'] = design[ind]
+        this_step['reward'] = reward[ind]
         log_data['run_log'].append(this_step)
     log_data['end_time'] = datetime.datetime.now()
     with open(os.path.join(logpath, file_name), 'w') as outfile:
