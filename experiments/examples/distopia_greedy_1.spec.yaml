@@ -9,7 +9,7 @@ agent:
 environment:
     distopia_environment.DistopiaEnvironment()
 n_steps:
-    10
+    5
 environment_params:
     metrics:
       - population

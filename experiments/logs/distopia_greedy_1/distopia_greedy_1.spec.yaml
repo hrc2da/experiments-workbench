@@ -18,5 +18,5 @@ environment_params:
   - race
 experiment_description: Greedy agent, Distopia Environment
 experiment_type: agent_experiment.AgentExperiment()
-n_steps: 10
+n_steps: 5
 random_seed: 42
