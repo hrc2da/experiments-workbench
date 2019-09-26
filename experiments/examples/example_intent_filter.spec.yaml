@@ -1,0 +1,11 @@
+# Each spec file is in yaml format
+
+experiment_description:
+  This is an example experiment spec file for an intent_filter experiment.
+experiment_type:
+  intent_filter_experiment.IntentFilterExperiment()
+test_proportion:
+  # the proportion of the data to save as test data
+  0.2
+random_seed:
+  42

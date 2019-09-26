@@ -1,0 +1,19 @@
+model:
+  type: Sequential
+  layers:
+      - type: Dense
+        units: 5
+        activation: 'tanh'
+        batch_input_shape: [10, 40, 5]
+      - type: Dense
+        units: 131
+        activation: 'relu'
+      - type: Flatten
+      - type: Dropout
+        rate: 0.2
+      - type: Dense
+        units: 131
+        activation: 'softmax'
+  loss: 'sparse_categorical_crossentropy'
+  optimizer: 'adam'
+  metrics: ['sparse_categorical_accuracy']

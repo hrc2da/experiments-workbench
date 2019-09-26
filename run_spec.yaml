@@ -16,3 +16,9 @@ environment_params:
   type: dict
 random_seed:
   type: int
+data:
+  type: dict
+model:
+  type: dict
+n_workers:
+  type: int

@@ -1,0 +1,19 @@
+model:
+  type: Sequential
+  layers:
+      - type: Conv2D
+        filters: 64
+        kernel_size: 3
+        activation: 'relu'
+        input_shape: [28,28,1]
+      - type: Conv2D
+        filters: 32
+        kernel_size: 3
+        activation: 'relu'
+      - type: Flatten
+      - type: Dense
+        units: 10
+        activation: 'softmax'
+  loss: 'categorical_crossentropy'
+  optimizer: 'adam'
+  metrics: ['categorical_accuracy']

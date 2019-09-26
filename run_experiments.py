@@ -16,3 +16,4 @@ for fpath in experiment_spec_fpaths:
     print("Running experiment {}: \n\t{}".format(fpath.split('/')[-1],specs.experiment_description))
     print("Specs for experiment are: \n{}\n{}".format(line_sep,yaml.dump(specs)))
     specs.experiment_type.run(specs)
+

@@ -1,0 +1,34 @@
+experiment_description: This is an example experiment spec file for an intent_filter experiment.
+experiment_type: classification_experiment.DistopiaClassificationExperiment()
+data:
+  backend: data_types.distopia_data.DistopiaData
+  training_path: /home/dev/Downloads/243_raw.pkl
+  preprocessors: # these should be in the order you want them called
+    - truncate_design_dict
+    - design_dict2mat_labelled
+  test_proportion:
+    # the proportion of the data to save as test data
+    0.2
+random_seed:
+  42
+model:
+  backend: models.keras_nn.KerasSequential
+  type: Sequential
+  layers:
+      - type: Conv2D
+        filters: 64
+        kernel_size: [1,5]
+        activation: 'relu'
+        input_shape: [72,8,1] # 72 counties + 5 outcomes, 8 districts, 1 step
+      - type: Conv2D
+        filters: 32
+        kernel_size: [1,4]
+        activation: 'relu'
+      - type: Flatten
+      - type: Dense
+        units: 5
+        activation: 'tanh' # output is weight vector from -1 to 1
+  loss: 'mean_squared_error'
+  optimizer: 'adam'
+  metrics: ['mse']
+

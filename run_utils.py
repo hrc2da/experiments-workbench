@@ -1,6 +1,8 @@
 from agents import *
 from environments import *
 from experiment_types import *
+from data_types import *
+from models import *
 import yaml
 from argparse import Namespace
 import os
@@ -46,4 +48,3 @@ def setup_log_dir(spec_path):
     os.mkdir(log_path)
     os.rename(spec_path,os.path.join(log_path,fname + '.spec.yaml'))
     return log_path
-                

@@ -9,4 +9,5 @@ class Experiment:
 # add your experiment type here
 import experiment_types.agent_experiment
 import experiment_types.intent_filter_experiment
-__all__ = ['agent_experiment','intent_filter_experiment']
+import experiment_types.classification_experiment
+__all__ = ['agent_experiment','intent_filter_experiment','classification_experiment']
