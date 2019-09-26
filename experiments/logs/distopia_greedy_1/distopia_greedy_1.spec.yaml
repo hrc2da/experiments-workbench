@@ -1,0 +1,22 @@
+agent: greedy_agent.GreedyAgent()
+agent_params:
+  num_metrics: 5
+  task:
+  - 0
+  - 0
+  - 1
+  - 0
+  - 1
+environment: distopia_environment.DistopiaEnvironment()
+environment_params:
+  env_name: distopia
+  metrics:
+  - population
+  - pvi
+  - compactness
+  - projected_votes
+  - race
+experiment_description: Greedy agent, Distopia Environment
+experiment_type: agent_experiment.AgentExperiment()
+n_steps: 5
+random_seed: 42
