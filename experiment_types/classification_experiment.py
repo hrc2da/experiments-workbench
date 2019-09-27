@@ -10,8 +10,8 @@ class DistopiaClassificationExperiment(Experiment):
     def run(self,specs):
         print("Running Classification Experiment")
         # load data
-        data_specs = specs.data
-        data_type = import_class(data_specs["backend"])
+        data_specs = specs['data']
+        data_type = data_specs["backend"]
         print(data_type)
         self.data = data_type()
         self.data.set_params(data_specs)
@@ -35,27 +35,27 @@ class DistopiaClassificationExperiment(Experiment):
             y_test = self.test_data.y
         else:
             x_train, x_test, y_train, y_test = train_test_split(self.data.x, self.data.y, 
-                                                test_size=data_specs["test_proportion"], random_state=specs.random_seed, shuffle=True)
+                                                test_size=data_specs["test_proportion"], random_state=specs['random_seed'], shuffle=True)
         # initialize model
-        model_specs = specs.model
-        model_type = import_class(model_specs["backend"])
+        model_specs = specs['model']
+        model_type = model_specs["backend"]
         model = model_type()
         model.set_params(model_specs)
         # train the model
         n,width,height = x_train.shape
         history = model.fit(x_train.reshape(n,width,height,1),y_train, model_specs["fit_params"])
-        with open(os.path.join(specs.logpath,'history.pkl'), 'wb') as outfile:
+        with open(os.path.join(specs['logpath'],'history.pkl'), 'wb') as outfile:
             pkl.dump(history.history,outfile)
-        model.save(os.path.join(specs.logpath,'model.h5'))
+        model.save(os.path.join(specs['logpath'],'model.h5'))
         # test the model
         n,width,height = x_test.shape
         test_mse = model.evaluate(x_test.reshape(n,width,height,1),y_test)
         result_str = "Test MSE: {}".format(test_mse)
         print(result_str)
-        with open(os.path.join(specs.logpath,'test_results'),'w+') as outfile:
+        with open(os.path.join(specs['logpath'],'test_results'),'w+') as outfile:
             outfile.write(result_str)
         predictions = model.predict(x_test.reshape(n,width,height,1))
-        np.save(os.path.join(specs.logpath,'test_predictions'),predictions)
-        np.save(os.path.join(specs.logpath,'test_labels'),y_test)        
+        np.save(os.path.join(specs['logpath'],'test_predictions'),predictions)
+        np.save(os.path.join(specs['logpath'],'test_labels'),y_test)        
 
 
