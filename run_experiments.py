@@ -2,8 +2,6 @@ import glob
 import yaml
 from run_utils import setup_log_dir, import_params
 import os
-import json
-import datetime
 
 if os.name == 'nt':
     experiment_spec_fpaths = glob.glob("experiments/*.spec.yaml")
@@ -17,34 +15,17 @@ print("Found experiment spec files:{}".format([fpath.split('/')[-1] for fpath in
 print(line_sep)
 
 for fpath in experiment_spec_fpaths:
-    log_data = {}
     specs = import_params(fpath)
     logpath = setup_log_dir(fpath)
+
     specs['logpath'] = logpath
+
+    print("log path is {}".format(logpath))
+
     # print("Running experiment {}: \n\t{}".format(fpath.split('/')[-1],specs.experiment_description))
     # print("Specs for experiment are: \n{}\n{}".format(line_sep,yaml.dump(specs)))
     # specs.experiment_type.run(specs)
 
 
-    print("Running experiment {}: \n\t{}".format(fpath.split('\\')[-1],specs['experiment_description']))
-    # log_data['experiment_info'] = specs['experiment_description']
-    # log_data['start_time'] = datetime.datetime.now()
-    # log_data['metric_names'] = specs['environment_params']['metrics']
-    # log_data['task'] = specs['agent_params']['task']
-    # log_data['run_log'] = []
-    curr_time = datetime.datetime.now().strftime('%m_%d_%H_%M_%S')
-    file_name = curr_time + '.json'
-    results = specs['experiment_type']().run(specs)
-    # metric_names = specs['environment_params']['metrics']
-    # design, metric, reward = specs['experiment_type']().run(specs)
-    # for ind, m in enumerate(metric):
-    #     this_step = {}
-    #     this_step['step_no'] = ind
-    #     this_step['metrics'] = m
-    #     this_step['design'] = design[ind]
-    #     this_step['reward'] = reward[ind]
-    #     log_data['run_log'].append(this_step)
-    # log_data['end_time'] = datetime.datetime.now()
-    # with open(os.path.join(logpath, file_name), 'w') as outfile:
-    #     json.dump(log_data, outfile, default=str)
-
+    print("Running experiment {}: \n\t{}".format(fpath.split('\\')[-1],specs.experiment_description))
+    specs['experiment_type'].run(specs)
