@@ -90,8 +90,12 @@ class DistopiaData(Data):
         elif fmt == "csv":
             # TODO: no pre-processing for now, let's fix this later.
             assert labels_path is not None
-            self.x = self.load_csv(fname)
-            self.y = self.load_csv(labels_path)
+            if append == False or not hasattr(self,'x') or not hasattr(self,'y'):
+                self.x = self.load_csv(fname)
+                self.y = self.load_csv(labels_path)
+            else:
+                self.x = np.concatenate((self.x, self.load_csv(fname)))
+                self.y = np.concatenate((self.y, self.load_csv(labels_path)))
 
     # pre-processing functions
     def save_csv(self,xfname,yfname):
@@ -272,3 +276,33 @@ class DistopiaData(Data):
             for precinct in precincts:
                 mat[int(precinct),i] = 1
         return mat
+
+    def get_task_dict(self, merge=False):
+        '''Get a dictionary of trajectories keyed on task
+            if merge is True, then concat the trajectories
+        '''
+        task_dict = dict()
+        task_keys = set()
+        # start by getting the list of tasks in the data
+        for task in self.y:
+            task_keys.add(self.task_arr2str(task))
+
+        for key in task_keys:
+            task_arr = self.task_str2arr(key)
+            indices = np.where((self.y == task_arr).all(axis=1))[0]
+            if merge:
+                task_dict[key] = self.x[indices]
+            # otherwise, we have to split the indices
+            else:
+                task_dict[key] = []
+                last_idx = indices[0]
+                start_idx = indices[0]
+                for idx in indices[1:]:
+                    if idx - last_idx > 1:
+                        end_idx = last_idx
+                        task_dict[key].append(self.x[start_idx:end_idx])
+                        start_idx = idx
+                    last_idx = idx
+                task_dict[key].append(self.x[start_idx:]) #close up the last one
+        
+        return task_dict
