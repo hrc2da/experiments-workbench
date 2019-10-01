@@ -27,5 +27,5 @@ for fpath in experiment_spec_fpaths:
     # specs.experiment_type.run(specs)
 
 
-    print("Running experiment {}: \n\t{}".format(fpath.split('\\')[-1],specs.experiment_description))
-    specs['experiment_type'].run(specs)
+    print("Running experiment {}: \n\t{}".format(fpath.split('\\')[-1],specs['experiment_description']))
+    specs['experiment_type']().run(specs)
