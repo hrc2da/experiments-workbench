@@ -44,7 +44,38 @@ class DistopiaEnvironment(Environment):
         # normalization [0,size of wisconsin]
         'area': lambda s, d: s.scalar_maximum
     }
+    json_metric_extractors = {
 
+        # overall normalization plan: run one-hots in either direction to get rough bounds
+        # then z-normalize and trim on edges
+        # 'population' : lambda s,d : s.scalar_std,
+        # standard deviation of each district's total populations (-1)
+        # normalization: [0, single_district std]
+        #'population': lambda s, d: np.std([dm['metrics']['population']['scalar_value'] for dm in d]),
+        'population': lambda s, d: np.std([[m['scalar_value'] for m in dm['metrics'] if m['name'] == 'population'][0] for dm in d]),
+        # mean of district margin of victories (-1)
+        # normalization: [0,1]
+        'pvi': lambda s, d: s['scalar_maximum'],
+        # minimum compactness among districts (maximize the minimum compactness, penalize non-compactness) (+1)
+        # normalization: [0,1]
+        #'compactness': lambda s, d: np.min([dm['metrics']['compactness']['scalar_value'] for dm in d]),
+        'compactness': lambda s, d: np.min([[m['scalar_value'] for m in dm['metrics'] if m['name'] == 'compactness'][0] for dm in d]),
+        # TODO: change compactness from min to avg
+        # mean ratio of democrats over all voters in each district (could go either way)
+        # normalization: [0,1]
+        'projected_votes': lambda s, d: np.mean(
+            [dm['metrics']['projected_votes']['scalar_value'] / dm['metrics']['projected_votes']['scalar_maximum'] for dm in d]),
+        # std of ratio of nonminority to minority over districts
+        # normalization: [0, ]
+        'race': lambda s, d: np.std([dm['metrics']['race']['scalar_value'] / dm['metrics']['race']['scalar_maximum'] for dm in d]),
+        # scalar value is std of counties within each district. we take a max (-1) to minimize variance within district (communities of interest)
+        'income': lambda s, d: np.max([dm['metrics']['income']['scalar_value'] for dm in d]),
+        # 'education' : lambda s,d : s.scalar_std,
+
+        # maximum sized district (-1) to minimize difficulty of access
+        # normalization [0,size of wisconsin]
+        'area': lambda s, d: s['scalar_maximum']
+    }
     def __init__(self, x_lim=(100, 900), y_lim=(100, 900),
                  step_size=5, step_min=50, step_max=100,
                  pop_mean=None, pop_std=None):
@@ -254,16 +285,31 @@ class DistopiaEnvironment(Environment):
 
         if not self.check_legal_districts(districts):
             return None
+        return self.extract_metrics(self.metrics,state_metrics,districts)
+        # metric_dict = {}
+        # for state_metric in state_metrics:
+        #     metric_name = state_metric.name
+        #     if metric_name in self.metrics:
+        #         metric_dict[metric_name] = self.metric_extractors[metric_name](state_metric, districts)
 
-        metric_dict = {}
+        # metrics = np.array([metric_dict[metric] for metric in self.metrics])
+        # return metrics
+
+    @staticmethod
+    def extract_metrics(metric_names,state_metrics,districts,from_json=False):
+        metric_dict = dict()
         for state_metric in state_metrics:
-            metric_name = state_metric.name
-            if metric_name in self.metrics:
-                metric_dict[metric_name] = self.metric_extractors[metric_name](state_metric, districts)
+            if from_json:
+                metric_name = state_metric["name"]
+                if metric_name in metric_names:
+                    metric_dict[metric_name] = DistopiaEnvironment.json_metric_extractors[metric_name](state_metric, districts)
+            else:
+                metric_name = state_metric.name
+                if metric_name in metric_names:
+                    metric_dict[metric_name] = DistopiaEnvironment.metric_extractors[metric_name](state_metric, districts)
 
-        metrics = np.array([metric_dict[metric] for metric in self.metrics])
+        metrics = np.array([metric_dict[metric] for metric in metric_names])
         return metrics
-
     def get_reward(self, metrics, reward_weights):
         '''Get the scalar reward associated with metrics
         '''
@@ -279,3 +325,37 @@ class DistopiaEnvironment(Environment):
             return metrics
         else:
             return (metrics - self.pop_mean)/self.pop_std
+
+    def fixed2dict(self, fixed_arr):
+        '''Convert a fixed array of nx8 to an 8 district dict
+            The fixed_arr should be in form [x0,y0,x1,y1...]
+            Strips out zeros
+        '''
+        dist_dict = dict()
+        assert len(fixed_arr) % 8 == 0
+        blocks_per_dist = len(fixed_arr)//8
+
+        for i in range(len(fixed_arr),2):
+            x = fixed_arr[i]
+            y = fixed_arr[i+1]
+            district = i//blocks_per_dist
+            if district in dist_dict:
+                dist_dict[district].append((x,y))
+            else:
+                dist_dict[district] = [(x,y)]
+        return dist_dict
+
+    def dict2fixed(self, dist_dict, blocks_per_dist):
+        '''Convert a district dict into a fixed-width array (zero-padded)
+        '''
+        fixed = []
+        for district, blocks in dist_dict.items():
+            n_to_pad = blocks_per_dist - len(blocks)
+            assert n_to_pad >= 0
+            for block in blocks:
+                fixed.append(block[0])
+                fixed.append(block[1])
+            for i in range(n_to_pad):
+                fixed.append(0.0) # x
+                fixed.append(0.0) # y
+        return fixed

@@ -6,6 +6,7 @@ import csv
 from tqdm import tqdm
 from multiprocessing import Pool, Manager
 from threading import Thread
+from environments.distopia_environment import DistopiaEnvironment
 
 
 class DistopiaData(Data):
@@ -20,7 +21,7 @@ class DistopiaData(Data):
         #     self.n_workers = specs["n_workers"]
         # else:
         #     self.n_workers = 1
-    def load_data(self, fname, fmt=None, labels_path=None):
+    def load_data(self, fname, fmt=None, labels_path=None, append=False, load_designs=False, load_metrics=False, load_fiducials=False):
         if fmt is None:
             fmt = self.infer_fmt(fname)
         print(fmt)
@@ -42,6 +43,8 @@ class DistopiaData(Data):
             trajectories = [] # tuple of trajectory, focus_trajectory, and label
             cur_task = None
             cur_focus = "None"
+            cur_trajectory_districts = []
+            cur_trajectory_metrics = []
             cur_trajectory = []
             task_counter = 0
             for log in logs:
@@ -49,6 +52,7 @@ class DistopiaData(Data):
                 if "task" in keys:
                         trajectories.append((cur_trajectory[:],cur_task))
                         cur_task = log["task"]
+                        print(cur_task)
                         cur_trajectory = []
                         task_counter += 1
                 elif "focus" in keys and log['focus']['cmd'] == 'focus_state':
@@ -56,15 +60,30 @@ class DistopiaData(Data):
                 elif cur_task is None:
                     continue
                 elif "districts" in keys:
-                    cur_trajectory.append(self.jsondistricts2mat(log['districts']['districts']))
+                    if len(log['fiducials']['fiducials']) < 8:
+                        continue
+                    step_tuple = []
+                    if load_designs == True:
+                        step_districts = self.jsondistricts2mat(log['districts']['districts'])
+                        step_tuple.append(step_districts)
+                    if load_metrics == True:
+                        assert hasattr(self,"metric_names")
+                        step_metrics= DistopiaEnvironment.extract_metrics(self.metric_names,log['districts']['metrics'],
+                                                                            log['districts']['districts'],from_json=True)
+                        step_tuple.append(step_metrics)
+                    cur_trajectory.append(step_tuple)
             trajectories.append((cur_trajectory[:],cur_task))
-            self.x = []
-            self.y = []
+            if append == False or not hasattr(self,'x') or not hasattr(self,'y'):
+                self.y = []
+                self.x = []
+            else:
+                self.y = list(self.y)
+                self.x = list(self.x)
             for trajectory in trajectories:
-                samples, task = trajectory
-                for sample in samples:
-                    self.x.append(sample)
-                    self.y.append(task)
+                samples,task = trajectory
+                for sstep in samples:
+                    self.x.append(*sstep) #any sample data
+                    self.y.append(task) #task
             self.x = np.array(self.x)
             self.y = np.array(self.y)
 
@@ -76,8 +95,8 @@ class DistopiaData(Data):
 
     # pre-processing functions
     def save_csv(self,xfname,yfname):
-        with open(xfname, 'w+') as samplefile:
-            with open(yfname+"labels.csv", 'w+') as labelfile:
+        with open(xfname+".csv", 'w+') as samplefile:
+            with open(yfname+"_labels.csv", 'w+') as labelfile:
                 samplewriter = csv.writer(samplefile)
                 labelwriter = csv.writer(labelfile)
                 for i,sample in enumerate(self.x):
