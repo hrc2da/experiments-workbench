@@ -2,6 +2,7 @@ import csv
 import json
 import yaml
 import pickle as pkl
+import numpy as np
 
 from pathlib import Path
 
@@ -72,12 +73,12 @@ class Data:
             return pkl.load(infile)
     def load_csv(self, fname, np_arr=True):
         with open(fname, 'r') as infile:
-            reader = csv.reader(infile)
+            reader = csv.reader(infile,quoting=csv.QUOTE_NONNUMERIC) #convert non-quoted to floats
             data = []
             for line in reader:
                 data.append(line)
             if np_arr:
-                np.array(data)
+                return np.array(data)
             else:
                 return data
     def load_json(self,fname):
