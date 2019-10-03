@@ -300,9 +300,11 @@ class DistopiaData(Data):
                 for idx in indices[1:]:
                     if idx - last_idx > 1:
                         end_idx = last_idx
-                        task_dict[key].append(self.x[start_idx:end_idx])
+                        if end_idx-start_idx > 1:
+                            task_dict[key].append(self.x[start_idx:end_idx])
                         start_idx = idx
                     last_idx = idx
-                task_dict[key].append(self.x[start_idx:]) #close up the last one
+                if start_idx < last_idx:
+                    task_dict[key].append(self.x[start_idx:last_idx]) #close up the last one
         
         return task_dict
