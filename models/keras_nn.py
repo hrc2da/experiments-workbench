@@ -1,7 +1,7 @@
 from models import Model
 
 from keras.models import Sequential
-from keras.layers import Dense, Flatten, Dropout, LSTM, Conv1D, Conv2D
+from keras.layers import Dense, Flatten, Dropout, LSTM, Conv1D, Conv2D, Conv3D
 
 from copy import deepcopy
 
@@ -10,7 +10,7 @@ class KerasSequential(Model):
         self.model = Sequential()
         for layer in specs['layers']:
             self.model.add(self.generate_layer(layer))
-        self.model.compile(loss=specs['loss'],optimizer=specs['optimizer'])
+        self.model.compile(loss=specs['loss'],optimizer=specs['optimizer'],metrics=specs['metrics'])
         self.model.summary()
 
     def set_params(self,specs):
@@ -45,6 +45,9 @@ class KerasSequential(Model):
         elif layer_type == "Conv2D":
             args = ['filters','kernel_size','strides','padding','data_format','dilation_rate','activation','use_bias','kernel_initializer','bias_initializer','kernel_regularizer','bias_regularizer','activity_regularizer','kernel_constraint','bias_constraint','input_shape','output_shape']
             return Conv2D(**self.extract_layer_args(layer,args,layer_type))
+        elif layer_type == "Conv3D":
+            args = ['filters','kernel_size','strides','padding','data_format','dilation_rate','activation','use_bias','kernel_initializer','bias_initializer','kernel_regularizer','bias_regularizer','activity_regularizer','kernel_constraint','bias_constraint','input_shape','output_shape']
+            return Conv3D(**self.extract_layer_args(layer,args,layer_type))
 
     @staticmethod
     def extract_layer_args(given_args,allowable_args,layer_type):
