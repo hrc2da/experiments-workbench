@@ -21,3 +21,18 @@ def split_module_class(full_path):
 def import_class(full_path):
     class_name,module_name = split_module_class(full_path)
     return getattr(import_module(module_name), class_name)
+
+def hierarchical_sort(lst, direction='lr', order='descending'):
+    assert len(lst) > 0
+    to_sort = lst[:]
+    sample = to_sort[0]
+    sort_order = -1 if order == 'descending' else 1
+    if direction == 'rl':
+        for i in range(len(sample)):
+            to_sort.sort(key=lambda x: sort_order * x[i])
+    elif direction == 'lr':
+        for j in range(len(sample)-1, -1, -1):
+            to_sort.sort(key=lambda x: sort_order * x[j])
+    return to_sort
+
+

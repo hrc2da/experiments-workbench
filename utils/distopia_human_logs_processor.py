@@ -11,12 +11,12 @@ from data_types.distopia_data import DistopiaData
 
 name = "zhilong"
 
-data_dir = ('/home/dev/data/distopia/team_logs')
+data_dir = ('/home/dev/data/distopia/team_logs/')
 logpaths = glob(os.path.join(data_dir,'{}_*.json'.format(name)))
 data = DistopiaData()
-data.set_params({'metric_names':['population','pvi','compactness'],'preprocessors':[]})
+data.set_params({'metric_names':['population','pvi','compactness','projected_votes'],'preprocessors':[]})
 for logfile in logpaths:
     print(logfile)
     data.load_data(logfile,append=True,load_designs=False,load_metrics=True)
-fname = os.path.join(data_dir,"{}_logs".format(name))
+fname = os.path.join(data_dir,"metrics","{}_logs".format(name))
 data.save_csv(fname,fname)
