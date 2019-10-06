@@ -63,11 +63,12 @@ class DistopiaEnvironment(Environment):
         # TODO: change compactness from min to avg
         # mean ratio of democrats over all voters in each district (could go either way)
         # normalization: [0,1]
-        'projected_votes': lambda s, d: np.mean(
-            [dm['metrics']['projected_votes']['scalar_value'] / dm['metrics']['projected_votes']['scalar_maximum'] for dm in d]),
+        'projected_votes': lambda s, d: np.mean([[m['scalar_value']/m['scalar_maximum'] for m in dm['metrics'] if m['name'] == 'projected_votes'][0] for dm in d]),
+            #[dm['metrics']['projected_votes']['scalar_value'] / dm['metrics']['projected_votes']['scalar_maximum'] for dm in d]),
         # std of ratio of nonminority to minority over districts
         # normalization: [0, ]
-        'race': lambda s, d: np.std([dm['metrics']['race']['scalar_value'] / dm['metrics']['race']['scalar_maximum'] for dm in d]),
+        'race': lambda s, d: np.std([[m['scalar_value'] for m in dm['metrics'] if m['name'] == 'race'][0] for dm in d]),
+        #lambda s, d: np.std([dm['metrics']['race']['scalar_value'] / dm['metrics']['race']['scalar_maximum'] for dm in d]),
         # scalar value is std of counties within each district. we take a max (-1) to minimize variance within district (communities of interest)
         'income': lambda s, d: np.max([dm['metrics']['income']['scalar_value'] for dm in d]),
         # 'education' : lambda s,d : s.scalar_std,

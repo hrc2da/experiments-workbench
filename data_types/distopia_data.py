@@ -1,5 +1,6 @@
 from data_types import Data
 from distopia.app.agent import VoronoiAgent
+from utils import hierarchical_sort
 import numpy as np
 import pickle as pkl
 import csv
@@ -7,9 +8,11 @@ from tqdm import tqdm
 from multiprocessing import Pool, Manager
 from threading import Thread
 from environments.distopia_environment import DistopiaEnvironment
+import itertools
 
 
 class DistopiaData(Data):
+    master_metric_list = ['population', 'pvi', 'compactness','projected_votes','race']
     def __init__(self):
         self.voronoi = VoronoiAgent()
         self.voronoi.load_data()
@@ -17,6 +20,7 @@ class DistopiaData(Data):
         for param, param_val in specs.items():
             setattr(self, param, param_val)
         self.preprocessors = specs["preprocessors"]
+        self.generate_task_dicts(len(self.metric_names))
         # if "n_workers" in specs:
         #     self.n_workers = specs["n_workers"]
         # else:
@@ -26,7 +30,14 @@ class DistopiaData(Data):
             fmt = self.infer_fmt(fname)
         print(fmt)
         if fmt == "pkl" or fmt== "pk":
-            _,raw_data = self.load_pickle(fname)
+            metrics,designs = self.load_pickle(fname)
+            import pdb; pdb.set_trace()
+            if not hasattr(self,'feature_type'):
+                raw_data = designs
+            elif self.feature_type == "metrics":
+                raw_data = metrics
+            elif self.feature_type == "designs":
+                raw_data = designs
             for preprocessor in self.preprocessors:
                 raw_data = getattr(self,preprocessor)(raw_data) #design_dict2mat_labelled(raw_data)
             self.x,self.y = raw_data
@@ -60,7 +71,10 @@ class DistopiaData(Data):
                 elif cur_task is None:
                     continue
                 elif "districts" in keys:
-                    if len(log['fiducials']['fiducials']) < 8:
+                    if len(log['districts']['districts']) < 8:
+                        continue
+                    district_sizes = [len(d['precincts']) for d in log['districts']['districts']]
+                    if min(district_sizes) < 1:
                         continue
                     step_tuple = []
                     if load_designs == True:
@@ -90,13 +104,21 @@ class DistopiaData(Data):
         elif fmt == "csv":
             # TODO: no pre-processing for now, let's fix this later.
             assert labels_path is not None
+            raw_x = self.load_csv(fname)
+            raw_y = self.load_csv(labels_path)
+            for preprocessor in self.preprocessors:
+                raw_x,raw_y = getattr(self,preprocessor)((raw_x,raw_y))
+            
             if append == False or not hasattr(self,'x') or not hasattr(self,'y'):
-                self.x = self.load_csv(fname)
-                self.y = self.load_csv(labels_path)
+                self.x = raw_x
+                self.y = raw_y
             else:
-                self.x = np.concatenate((self.x, self.load_csv(fname)))
-                self.y = np.concatenate((self.y, self.load_csv(labels_path)))
-
+                self.x = np.concatenate((self.x, raw_x))
+                self.y = np.concatenate((self.y, raw_y))
+    def generate_task_dicts(self,dim):
+        self.task_labels = hierarchical_sort(list(map(np.array,itertools.product(*[[-1., 0., 1.]]*dim))))
+        self.task_ids = {self.task_arr2str(task) : i for i,task in enumerate(self.task_labels)}
+        self.task_dict = {self.task_arr2str(task) : task for task in self.task_labels}    
     # pre-processing functions
     def save_csv(self,xfname,yfname):
         with open(xfname+".csv", 'w+') as samplefile:
@@ -111,6 +133,23 @@ class DistopiaData(Data):
         np.save(yfname, self.y)
     
     # pre-process labels
+    def slice_metrics_to_4(self,data):
+        x,y = data
+        return x[:,:4],y
+    def onehot2class(self,data):
+        x,y = data
+        y_out = []
+        for label in y:
+            y_out.append(self.task_ids[self.task_arr2str(label)])
+        print(y_out[:10])
+        return x,y_out
+    @staticmethod
+    def unflatten_districts(data):
+        flattened_arr_list,labels = data
+        n,flat_dim = flattened_arr_list.shape
+        assert flat_dim == 72*8
+        return flattened_arr_list.reshape(n,72,8),labels
+
     @staticmethod
     def task_str2arr(task_str):
         ''' convert a stringified np array back to the array
@@ -135,7 +174,71 @@ class DistopiaData(Data):
         for key,samples in design_dict.items():
             design_dict[key] = samples[start:limit]
         return design_dict
+ 
 
+    def filter_by_metrics(self,data):
+        '''remove all the data with labels that have nonzero weight on metrics that are not on our list
+        '''
+        x,y = data
+        x_out = []
+        y_out = []
+        metric_indices = [self.master_metric_list.index(metric) for metric in self.metric_names]
+        for i, label in enumerate(y):
+            in_scope = True
+            for j, weight in enumerate(label):
+                if np.abs(weight) == 1 and self.master_metric_list[j] not in self.metric_names:
+                    in_scope = False
+                    break
+            if in_scope == True:
+                x_out.append(x[i,:])
+                y_out.append(label[metric_indices])
+        return np.array(x_out),np.array(y_out)
+
+
+    def sliding_window(self,data,window_size=40):
+        # should probably also check if metrics or designs here
+        if type(data) == dict:
+            # chunk into 50 and slide the window
+            task_dict = dict()
+            for key,val in data.items():
+                upper_bound = val.shape[0] - val.shape[0]%50
+                truncated = val[:upper_bound]
+                n_steps, metric_dim = truncated.shape
+                n_chunks = n_steps // 50
+                task_dict[key] = val.reshape(n_chunks,50,metric_dim)
+        else:
+            x,y = data
+            x_out = []
+            y_out = []
+            task_dict = self.get_task_dict(x,y,merge=False)
+        for key,val in task_dict.items():
+            for instance in val:
+                #slide across as much as possible
+                i = 0
+                while i + window_size < len(instance):
+                    x_win = (instance[i:i+window_size])
+                    x_out.append(instance[i:i+window_size])
+                    y_out.append(self.task_str2arr(key))
+                    i += 1
+        return np.array(x_out),np.array(y_out)
+
+
+    def conv3dreshape(self,data):
+        x,y = data
+        n,w,h,d = x.shape
+        return x.reshape(n,h,d,w,1),y
+
+    def strip_repeats(self,data):
+        x,y = data
+        x_out = [x[0]]
+        y_out = [y[0]]
+        last_sample = x[0]
+        for i,sample in enumerate(x[1:],1):
+            if not np.array_equal(last_sample,sample):
+                x_out.append(sample)
+                y_out.append(y[i])
+                last_sample = sample
+        return np.array(x_out),np.array(y_out)
     @staticmethod
     def window_stack(a,stepsize=1,width=3):
         return np.hstack( a[i:1+i-width or None:stepsize] for i in range(0,width) )
@@ -277,21 +380,25 @@ class DistopiaData(Data):
                 mat[int(precinct),i] = 1
         return mat
 
-    def get_task_dict(self, merge=False):
+    def get_task_dict(self, x=None, y=None, merge=False):
         '''Get a dictionary of trajectories keyed on task
             if merge is True, then concat the trajectories
         '''
+        if x is None:
+            x = self.x
+        if y is None:
+            y = self.y
         task_dict = dict()
         task_keys = set()
         # start by getting the list of tasks in the data
-        for task in self.y:
+        for task in y:
             task_keys.add(self.task_arr2str(task))
 
         for key in task_keys:
             task_arr = self.task_str2arr(key)
-            indices = np.where((self.y == task_arr).all(axis=1))[0]
+            indices = np.where((y == task_arr).all(axis=1))[0]
             if merge:
-                task_dict[key] = self.x[indices]
+                task_dict[key] = x[indices]
             # otherwise, we have to split the indices
             else:
                 task_dict[key] = []
@@ -301,10 +408,10 @@ class DistopiaData(Data):
                     if idx - last_idx > 1:
                         end_idx = last_idx
                         if end_idx-start_idx > 1:
-                            task_dict[key].append(self.x[start_idx:end_idx])
+                            task_dict[key].append(x[start_idx:end_idx])
                         start_idx = idx
                     last_idx = idx
                 if start_idx < last_idx:
-                    task_dict[key].append(self.x[start_idx:last_idx]) #close up the last one
+                    task_dict[key].append(x[start_idx:last_idx]) #close up the last one
         
         return task_dict
