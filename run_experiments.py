@@ -4,10 +4,9 @@ from run_utils import setup_log_dir, import_params
 import os
 
 if os.name == 'nt':
-    experiment_spec_fpaths = glob.glob("experiments/*.spec.yaml")
+    experiment_spec_fpaths = glob.glob("experiments/examples/distopia_greedy_1.spec.yaml")
 else:
-    experiment_spec_fpaths = glob.glob("./experiments/*.spec.yaml")
-
+    experiment_spec_fpaths = glob.glob("./experiments/examples/distopia_greedy_1.spec.yaml")
 line_sep = "="*80
 print(line_sep)
 print("Running experiments in ")
