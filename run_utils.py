@@ -1,8 +1,8 @@
-from agents import *
-from environments import *
-from experiment_types import *
-from data_types import *
-from models import *
+# from agents import *
+# from environments import *
+# from experiment_types import *
+# from data_types import *
+# from models import *
 from utils import import_class
 import yaml
 import os
@@ -16,13 +16,16 @@ with open(run_spec_file, 'r') as input_stream:
 def import_params(param_file):
 
     with open(param_file, 'r') as input_stream:
+        # print(sys.path)
+        # print(sys.modules)
         param_dict = yaml.safe_load(input_stream)
         if "experiment_description" not in param_dict.keys() or param_dict["experiment_description"] == '':
             raise(ValueError("No description specified for experiment '{}'. Please add 'experiment_description' to the experiment spec file.".format(param_file)))
         # check the experiment type
         # note that this only checks at the module, and not the class level.
-        if "experiment_type" not in param_dict.keys() or param_dict["experiment_type"].split('.')[1] not in sys.modules['experiment_types'].__all__:
-            raise(ValueError("Experiment type '{}' is not defined or unrecognized. Please define an experient type in the experiment_types module (see __init__.py for details)".format(param_dict["experiment_type"])))
+        # print(param_dict)
+        # if "experiment_type" not in param_dict.keys() or param_dict["experiment_type"].split('.')[1] not in sys.modules['experiment_types'].__all__:
+        #     raise(ValueError("Experiment type '{}' is not defined or unrecognized. Please define an experient type in the experiment_types module (see __init__.py for details)".format(param_dict["experiment_type"])))
         param_dict = parse_param_types(param_dict,0,1)
     return param_dict
 
@@ -61,6 +64,7 @@ def setup_log_dir(spec_path):
     log_path = os.path.join(*fpath,'logs',fname)
     if os.path.exists(log_path):
         raise("Experiment log for '{}' already exists! Please choose a unique name or delete the old log directory.".format(log_path))
+    print(log_path)
     os.mkdir(log_path)
     os.rename(spec_path,os.path.join(log_path,fname + '.spec.yaml'))
     return log_path

@@ -9,6 +9,7 @@ from multiprocessing import Pool, Manager
 from threading import Thread
 from environments.distopia_environment import DistopiaEnvironment
 import itertools
+import ast
 
 
 class DistopiaData(Data):
@@ -25,6 +26,47 @@ class DistopiaData(Data):
         #     self.n_workers = specs["n_workers"]
         # else:
         #     self.n_workers = 1
+
+    def load_agent_data(self, fname,fmt=None, labels_path=None, append=False, load_designs=False, load_metrics=False):
+        """Loads the log file from running agent
+            Assumes that the log file contains data from multiple tasks"""
+        logs = self.load_json(fname)
+        cur_task = None
+        cur_trajectory = []
+        trajectories = []
+        task_counter = 0
+        for log in logs:
+            trajectories.append((cur_trajectory[:], cur_task))
+            cur_task = log["task"]
+            print(cur_task)
+            cur_trajectory = []
+            task_counter += 1
+            for step in log['run_log']:
+                step_tuple = []
+                if load_designs:
+                    step_districts = self.jsondistricts2mat(step['design'])
+                    step_tuple.append(step_districts)
+                if load_metrics:
+                    assert hasattr(self, "metric_names")
+                    metrics_str = step['metrics'].replace(" ", ",")
+                    step_metrics = ast.literal_eval(metrics_str)
+                    step_tuple.append(step_metrics)
+                cur_trajectory.append(step_tuple)
+            trajectories.append((cur_trajectory[:], cur_task))
+        if append == False or not hasattr(self, 'x') or not hasattr(self, 'y'):
+            self.y = []
+            self.x = []
+        else:
+            self.y = list(self.y)
+            self.x = list(self.x)
+        for trajectory in trajectories:
+            samples, task = trajectory
+            for sstep in samples:
+                self.x.append(*sstep)  # any sample data
+                self.y.append(task)  # task
+        self.x = np.array(self.x)
+        self.y = np.array(self.y)
+
     def load_data(self, fname, fmt=None, labels_path=None, append=False, load_designs=False, load_metrics=False, load_fiducials=False):
         if fmt is None:
             fmt = self.infer_fmt(fname)
@@ -58,8 +100,10 @@ class DistopiaData(Data):
             cur_trajectory_metrics = []
             cur_trajectory = []
             task_counter = 0
+            print(logs)
             for log in logs:
                 keys = log.keys()
+                step_tuple = []
                 if "task" in keys:
                         trajectories.append((cur_trajectory[:],cur_task))
                         cur_task = log["task"]
@@ -76,7 +120,6 @@ class DistopiaData(Data):
                     district_sizes = [len(d['precincts']) for d in log['districts']['districts']]
                     if min(district_sizes) < 1:
                         continue
-                    step_tuple = []
                     if load_designs == True:
                         step_districts = self.jsondistricts2mat(log['districts']['districts'])
                         step_tuple.append(step_districts)
@@ -121,6 +164,7 @@ class DistopiaData(Data):
         self.task_dict = {self.task_arr2str(task) : task for task in self.task_labels}    
     # pre-processing functions
     def save_csv(self,xfname,yfname):
+        print(xfname)
         with open(xfname+".csv", 'w+') as samplefile:
             with open(yfname+"_labels.csv", 'w+') as labelfile:
                 samplewriter = csv.writer(samplefile)

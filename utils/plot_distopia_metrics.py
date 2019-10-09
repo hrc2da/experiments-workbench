@@ -8,9 +8,9 @@ import numpy as np
 from matplotlib import pyplot as plt
 from environments.distopia_environment import DistopiaEnvironment
 
-name = "matt"
+name = "zhilong"
 metrics = ['population', 'pvi', 'compactness']
-data_dir = Path.home().joinpath('data','distopia','team_logs')
+data_dir = Path.home().joinpath('Documents','HRC','team_logs')
 input_glob = glob(os.path.join(str(data_dir),'{}_*logs.csv'.format(name)))
 output_dir = os.path.join(str(data_dir),"images")
 

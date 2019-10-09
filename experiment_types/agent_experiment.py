@@ -3,8 +3,11 @@ import datetime
 import os
 import json
 
+print("CALLED")
 
-class AgentExperiment:
+
+class AgentExperiment(Experiment):
+
     def run(self, specs):
         specs['agent'] = specs['agent']()
         specs['environment'] = specs['environment']()
@@ -12,6 +15,7 @@ class AgentExperiment:
         specs['agent_params']['logfile'] = specs['logpath']
         specs['environment'].set_params(specs['environment_params'])
         specs['agent'].set_params(specs['agent_params'])
+        data = []
         log_data = {}  # init log data
         log_data['experiment_info'] = specs['experiment_description']
         log_data['start_time'] = datetime.datetime.now()
@@ -30,7 +34,8 @@ class AgentExperiment:
             this_step['reward'] = reward[ind]
             log_data['run_log'].append(this_step)
         log_data['end_time'] = datetime.datetime.now()
+        data.append(log_data)
         logpath = specs['logpath']
         with open(os.path.join(logpath, file_name), 'w') as outfile:
-            json.dump(log_data, outfile, default=str)
+            json.dump(data, outfile, default=str, indent=4)
 

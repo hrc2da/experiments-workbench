@@ -3,11 +3,11 @@
 experiment_description:
     Greedy agent, Distopia Environment
 experiment_type:
-    agent_experiment.AgentExperiment()
+    experiment_types.agent_experiment.AgentExperiment
 agent:
-    greedy_agent.GreedyAgent()
+    agents.greedy_agent.GreedyAgent
 environment:
-    distopia_environment.DistopiaEnvironment()
+    environments.distopia_environment.DistopiaEnvironment
 n_steps:
     5
 environment_params:
@@ -15,17 +15,13 @@ environment_params:
       - population
       - pvi
       - compactness
-      - projected_votes
-      - race
     env_name: # just an example
         distopia
 agent_params:
     num_metrics: # just tell the agent how many metrics there are for assertion purposes
-      5
+      3
     task:
       - 0
-      - 0
-      - 1
       - 0
       - 1
 random_seed:
