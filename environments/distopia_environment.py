@@ -2,7 +2,7 @@ from random import randint
 import itertools
 import numpy as np
 from copy import deepcopy
-
+import pickle
 from environments import Environment
 from distopia.app.agent import VoronoiAgent
 from distopia.mapping._voronoi import ColliderException
@@ -322,10 +322,19 @@ class DistopiaEnvironment(Environment):
     def standardize_metrics(self, metrics):
         '''Standardizes the metrics if standardization stats have been provided.
         '''
-        if self.pop_mean is None or self.pop_std is None:
+
+        with open('stripped_normalization.pkl', 'rb') as f:
+            metric_arrays = pickle.load(f)
+            mean_array = metric_arrays[0]
+            std_array = metric_arrays[1]
+        new_metrics=[]
+        if mean_array is None or std_array is None:
             return metrics
         else:
-            return (metrics - self.pop_mean)/self.pop_std
+            for i in range(len(metrics)):
+                new_metrics.append((metrics[i] - mean_array[i]) /std_array[i])
+
+        return new_metrics
 
     def fixed2dict(self, fixed_arr):
         '''Convert a fixed array of nx8 to an 8 district dict

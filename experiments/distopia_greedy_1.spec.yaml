@@ -1,17 +1,11 @@
 agent: agents.greedy_agent.GreedyAgent
 agent_params:
   num_metrics: 3
-  task:
-  - 0
-  - 0
-  - 1
+  task: [0, 0, 1]
 environment: environments.distopia_environment.DistopiaEnvironment
 environment_params:
   env_name: distopia
-  metrics:
-  - population
-  - pvi
-  - compactness
+  metrics: [population, pvi, compactness]
 experiment_description: Greedy agent, Distopia Environment
 experiment_type: experiment_types.agent_experiment.AgentExperiment
 n_steps: 5
