@@ -13,7 +13,7 @@ name = "10_06_23_27_41"
 
 data_dir = ('/home/zhilong/Documents/HRC/team_logs/')
 
-is_human = 0;
+is_human = 0
 logpaths = glob(os.path.join(data_dir,'{}.json'.format(name)))
 data = DistopiaData()
 data.set_params({'metric_names':['population','pvi','compactness','projected_votes'],'preprocessors':[]})
