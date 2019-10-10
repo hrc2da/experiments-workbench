@@ -48,9 +48,9 @@ class DistopiaData(Data):
                     step_tuple.append(step_districts)
                 if load_metrics:
                     assert hasattr(self, "metric_names")
-                    metrics_str = step['metrics'].replace(" ", ",")
-                    step_metrics = ast.literal_eval(metrics_str)
-                    step_tuple.append(step_metrics)
+                    # metrics_str = step['metrics'].replace(" ", ",")
+                    # step_metrics = ast.literal_eval(metrics_str)
+                    step_tuple.append(step['metrics'])
                 cur_trajectory.append(step_tuple)
             trajectories.append((cur_trajectory[:], cur_task))
         if append == False or not hasattr(self, 'x') or not hasattr(self, 'y'):
@@ -92,6 +92,7 @@ class DistopiaData(Data):
             for preprocessor in self.preprocessors:
                 self.x,self.y = getattr(self,preprocessor)((self.x,self.y))
         elif fmt == "json": #it's a log file (for now)
+            env = DistopiaEnvironment()  # TODO: This is a temp fix to standardize human metrics
             logs = self.load_json(fname)
             trajectories = [] # tuple of trajectory, focus_trajectory, and label
             cur_task = None
@@ -125,8 +126,10 @@ class DistopiaData(Data):
                         step_tuple.append(step_districts)
                     if load_metrics == True:
                         assert hasattr(self,"metric_names")
-                        step_metrics= DistopiaEnvironment.extract_metrics(self.metric_names,log['districts']['metrics'],
-                                                                            log['districts']['districts'],from_json=True)
+                        # perform normalization on human data
+                        step_metrics = env.standardize_metrics(
+                            DistopiaEnvironment.extract_metrics(self.metric_names,log['districts']['metrics'],
+                                                                log['districts']['districts'],from_json=True))
                         step_tuple.append(step_metrics)
                     cur_trajectory.append(step_tuple)
             trajectories.append((cur_trajectory[:],cur_task))

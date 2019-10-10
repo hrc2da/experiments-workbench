@@ -9,6 +9,8 @@ print("CALLED")
 class AgentExperiment(Experiment):
 
     def run(self, specs):
+        print('='*30)
+        print(specs)
         specs['agent'] = specs['agent']()
         specs['environment'] = specs['environment']()
         specs['environment_params']['logfile'] = specs['logpath']
@@ -16,6 +18,7 @@ class AgentExperiment(Experiment):
         specs['environment'].set_params(specs['environment_params'])
         specs['agent'].set_params(specs['agent_params'])
         data = []
+
         log_data = {}  # init log data
         log_data['experiment_info'] = specs['experiment_description']
         log_data['start_time'] = datetime.datetime.now()

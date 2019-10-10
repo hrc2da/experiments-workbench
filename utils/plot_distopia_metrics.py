@@ -8,7 +8,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 from environments.distopia_environment import DistopiaEnvironment
 
-name = "zhilong"
+# name = "10_09_23_29_18"
+name = 'zhilong'
 metrics = ['population', 'pvi', 'compactness']
 data_dir = Path.home().joinpath('Documents','HRC','team_logs')
 input_glob = glob(os.path.join(str(data_dir),'{}_*logs.csv'.format(name)))
@@ -22,8 +23,6 @@ def plot_trajectory(trajectory,title="",names=[],outdir=None):
     vars = list(zip(*trajectory))
     for i in range(len(vars)-len(names)):
         labels.append('')
-    if len(labels) != len(vars):
-        import pdb; pdb.set_trace()
     assert len(labels) == len(vars)
     print(len(vars))
     for i,v in enumerate(vars):
@@ -45,14 +44,13 @@ for f in input_glob:
     data_fn = str(fn.with_suffix(".csv")) # TODO: gross, clean this up
     task_fn = str(fn_root)+"_labels.csv"
     data.load_data(data_fn,labels_path=task_fn,append=True)
-import pdb; pdb.set_trace()
 print(data.x.shape)
 print(data.y.shape)
 task_dict = data.get_task_dict()
 for k,v in task_dict.items():
     print(len(v))
     for vrun in v:
-        plot_trajectory(vrun,k,metrics)#,str(output_dir))
+        plot_trajectory(vrun,k,metrics)#, str(output_dir))
 n_keys = len(task_dict.values())
 print(n_keys)
 

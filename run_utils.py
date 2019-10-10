@@ -1,8 +1,8 @@
-# from agents import *
-# from environments import *
-# from experiment_types import *
-# from data_types import *
-# from models import *
+from agents import *
+from environments import *
+from experiment_types import *
+from data_types import *
+from models import *
 from utils import import_class
 import yaml
 import os
@@ -24,8 +24,8 @@ def import_params(param_file):
         # check the experiment type
         # note that this only checks at the module, and not the class level.
         # print(param_dict)
-        # if "experiment_type" not in param_dict.keys() or param_dict["experiment_type"].split('.')[1] not in sys.modules['experiment_types'].__all__:
-        #     raise(ValueError("Experiment type '{}' is not defined or unrecognized. Please define an experient type in the experiment_types module (see __init__.py for details)".format(param_dict["experiment_type"])))
+        if "experiment_type" not in param_dict.keys() or param_dict["experiment_type"].split('.')[1] not in sys.modules['experiment_types'].__all__:
+            raise(ValueError("Experiment type '{}' is not defined or unrecognized. Please define an experient type in the experiment_types module (see __init__.py for details)".format(param_dict["experiment_type"])))
         param_dict = parse_param_types(param_dict,0,1)
     return param_dict
 
