@@ -102,6 +102,22 @@ class DistopiaEnvironment(Environment):
             for m in metrics:
                 assert m in self.evaluator.metrics
             self.set_metrics(metrics)
+        if 'standardization_file' in specs_dict and specs_dict['standardization_file'] is not None:
+            # hopefully the above condition short-circuits
+            with open(specs_dict['standardization_file'], 'rb') as f:
+                self.mean_array, self.std_array = pickle.load(f)
+                if type(self.mean_array) is not np.ndarray:
+                    self.mean_array = np.array(self.mean_array)
+                if type(self.std_array) is not np.ndarray:
+                    self.std_array = np.array(self.std_array)
+                # cut down the metrics to the ones that we are using.
+                # this is not going to work if they are out of order
+                # TODO: generalize this, maybe by adding metadata to the data file
+                self.mean_array = self.mean_array[:len(self.metrics)]
+                self.std_array = self.std_array[:len(self.metrics)]
+
+        else:
+            self.mean_array = self.std_array = None
 
 
     def gencoordinates(self, m, n, j, k):
@@ -322,19 +338,12 @@ class DistopiaEnvironment(Environment):
     def standardize_metrics(self, metrics):
         '''Standardizes the metrics if standardization stats have been provided.
         '''
-
-        with open('stripped_normalization.pkl', 'rb') as f:
-            metric_arrays = pickle.load(f)
-            mean_array = metric_arrays[0]
-            std_array = metric_arrays[1]
-        new_metrics=[]
-        if mean_array is None or std_array is None:
+        if self.mean_array is None or self.std_array is None:
             return metrics
         else:
-            for i in range(len(metrics)):
-                new_metrics.append((metrics[i] - mean_array[i]) /std_array[i])
-
-        return new_metrics
+            if type(metrics) is not np.ndarray:
+                metrics = np.array(metrics)
+            return (metrics - self.mean_array)/self.std_array
 
     def fixed2dict(self, fixed_arr):
         '''Convert a fixed array of nx8 to an 8 district dict
