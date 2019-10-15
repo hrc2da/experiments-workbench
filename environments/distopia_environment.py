@@ -28,7 +28,7 @@ class DistopiaEnvironment(Environment):
         'pvi': lambda s, d: s.scalar_maximum,
         # minimum compactness among districts (maximize the minimum compactness, penalize non-compactness) (+1)
         # normalization: [0,1]
-        'compactness': lambda s, d: np.min([dm.metrics['compactness'].scalar_value for dm in d]),
+        'compactness': lambda s, d: np.mean([dm.metrics['compactness'].scalar_value for dm in d]),
         # mean ratio of democrats over all voters in each district (could go either way)
         # normalization: [0,1]
         'projected_votes': lambda s, d: np.mean(
@@ -59,7 +59,7 @@ class DistopiaEnvironment(Environment):
         # minimum compactness among districts (maximize the minimum compactness, penalize non-compactness) (+1)
         # normalization: [0,1]
         #'compactness': lambda s, d: np.min([dm['metrics']['compactness']['scalar_value'] for dm in d]),
-        'compactness': lambda s, d: np.min([[m['scalar_value'] for m in dm['metrics'] if m['name'] == 'compactness'][0] for dm in d]),
+        'compactness': lambda s, d: np.mean([[m['scalar_value'] for m in dm['metrics'] if m['name'] == 'compactness'][0] for dm in d]),
         # TODO: change compactness from min to avg
         # mean ratio of democrats over all voters in each district (could go either way)
         # normalization: [0,1]
@@ -298,6 +298,12 @@ class DistopiaEnvironment(Environment):
                 exc_logger.write(str(design) + '\n')
             else:
                 print("Collider Exception!")
+            return None
+        except AssertionError as e:
+            if exc_logger is not None:
+                exc_logger.write(str(design) + '\n')
+            else:
+                print("Assertion failed: {}".format(e.args))
             return None
 
         if not self.check_legal_districts(districts):
