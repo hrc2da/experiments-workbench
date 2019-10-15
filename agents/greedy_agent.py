@@ -12,22 +12,30 @@ class GreedyAgent(Agent):
 
     def __init__(self):
         print('initializing greedy agent')
-        self.occupied = set()
         self.reward_weights = []
 
     def set_params(self, specs_dict):
-        num_metrics = specs_dict['num_metrics']
-        task = specs_dict['task']
-        if task == []:
-            self.reward_weights = [1 for _ in range(num_metrics)]
-        else:
-            assert len(task) == num_metrics
-            self.reward_weights = task
+        self.num_metrics = specs_dict['num_metrics']
+        if 'task' in specs_dict:
+            task = specs_dict['task']
+            if task == []:
+                self.reward_weights = [1 for _ in range(num_metrics)]
+            else:
+                assert len(task) == num_metrics
+                self.reward_weights = task
+    
+    def set_task(self, task):
+        assert len(task) == self.num_metrics
+        self.reward_weights = task
+    
 
     def run(self, environment, n_steps, logger=None, exc_logger=None, status=None, initial=None, eps=0.8, eps_decay=0.9,
             eps_min=0.1, n_tries_per_step = 10):
         '''runs for n_steps and returns traces of designs and metrics
         '''
+        if logger is None and hasattr(self,'logger') and self.logger is not None:
+            logger = self.logger
+        
         environment.reset(initial)
         i = 0
         last_reward = float("-inf")
@@ -44,7 +52,7 @@ class GreedyAgent(Agent):
             rappend = reward_log.append
         while i < n_steps:
             i += 1
-            if i % 50 == 0:
+            if i % 100 == 0:
                 last_reward = float("-inf")
                 environment.reset(initial)
             count = 0
@@ -126,7 +134,7 @@ class GreedyAgent(Agent):
             #         if block not in chosen_neighbor[district]:
             #             self.occupied.remove(block)
             environment.take_step(neighborhood[best_idx])
-            self.occupied = set(itertools.chain(*environment.state.values()))
+            environment.occupied = set(itertools.chain(*environment.state.values()))
             if status is not None:
                 status.put('next')
             if logger is not None:
