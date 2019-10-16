@@ -28,4 +28,4 @@ for fpath in experiment_spec_fpaths:
 
 
     print("Running experiment {}: \n\t{}".format(fpath.split('\\')[-1],specs['experiment_description']))
-    Thread(target=specs['experiment_type']().run,args=specs).start()
+    Thread(target=specs['experiment_type']().run,args=(specs,)).start()
