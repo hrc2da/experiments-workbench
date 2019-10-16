@@ -48,9 +48,9 @@ class DistopiaData(Data):
                     step_tuple.append(step_districts)
                 if load_metrics:
                     assert hasattr(self, "metric_names")
-                    # metrics_str = step['metrics'].replace(" ", ",")
-                    # step_metrics = ast.literal_eval(metrics_str)
-                    step_tuple.append(step['metrics'])
+#                    metrics_str = step['metrics'].replace(" ", ",")
+                    step_metrics = self.task_str2arr(step['metrics'])
+                    step_tuple.append(step_metrics)
                 cur_trajectory.append(step_tuple)
             trajectories.append((cur_trajectory[:], cur_task))
         if append == False or not hasattr(self, 'x') or not hasattr(self, 'y'):
@@ -67,7 +67,7 @@ class DistopiaData(Data):
         self.x = np.array(self.x)
         self.y = np.array(self.y)
 
-    def load_data(self, fname, fmt=None, labels_path=None, append=False, load_designs=False, load_metrics=False, load_fiducials=False):
+    def load_data(self, fname, fmt=None, labels_path=None, append=False, load_designs=False, load_metrics=False, norm_file = None, load_fiducials=False):
         if fmt is None:
             fmt = self.infer_fmt(fname)
         print(fmt)
@@ -93,6 +93,7 @@ class DistopiaData(Data):
                 self.x,self.y = getattr(self,preprocessor)((self.x,self.y))
         elif fmt == "json": #it's a log file (for now)
             env = DistopiaEnvironment()  # TODO: This is a temp fix to standardize human metrics
+            env.set_normalization(norm_file, self.metric_names)
             logs = self.load_json(fname)
             trajectories = [] # tuple of trajectory, focus_trajectory, and label
             cur_task = None
@@ -126,10 +127,11 @@ class DistopiaData(Data):
                         step_tuple.append(step_districts)
                     if load_metrics == True:
                         assert hasattr(self,"metric_names")
-                        # perform normalization on human data
+                        #perform normalization on human data
                         step_metrics = env.standardize_metrics(
                             DistopiaEnvironment.extract_metrics(self.metric_names,log['districts']['metrics'],
                                                                 log['districts']['districts'],from_json=True))
+#                        step_metrics = DistopiaEnvironment.extract_metrics(self.metric_names,log['districts']['metrics'],log['districts']['districts'],from_json=True)
                         step_tuple.append(step_metrics)
                     cur_trajectory.append(step_tuple)
             trajectories.append((cur_trajectory[:],cur_task))
@@ -154,7 +156,7 @@ class DistopiaData(Data):
             raw_y = self.load_csv(labels_path)
             for preprocessor in self.preprocessors:
                 raw_x,raw_y = getattr(self,preprocessor)((raw_x,raw_y))
-            
+
             if append == False or not hasattr(self,'x') or not hasattr(self,'y'):
                 self.x = raw_x
                 self.y = raw_y
@@ -164,12 +166,12 @@ class DistopiaData(Data):
     def generate_task_dicts(self,dim):
         self.task_labels = hierarchical_sort(list(map(np.array,itertools.product(*[[-1., 0., 1.]]*dim))))
         self.task_ids = {self.task_arr2str(task) : i for i,task in enumerate(self.task_labels)}
-        self.task_dict = {self.task_arr2str(task) : task for task in self.task_labels}    
+        self.task_dict = {self.task_arr2str(task) : task for task in self.task_labels}
     # pre-processing functions
     def save_csv(self,xfname,yfname):
         print(xfname)
-        with open(xfname+".csv", 'w+') as samplefile:
-            with open(yfname+"_labels.csv", 'w+') as labelfile:
+        with open(xfname+".csv", 'w+', newline='') as samplefile:
+            with open(yfname+"_labels.csv", 'w+', newline='') as labelfile:
                 samplewriter = csv.writer(samplefile)
                 labelwriter = csv.writer(labelfile)
                 for i,sample in enumerate(self.x):
@@ -178,7 +180,7 @@ class DistopiaData(Data):
     def save_npy(self,xfname,yfname):
         np.save(xfname, self.x)
         np.save(yfname, self.y)
-    
+
     # pre-process labels
     def slice_metrics_to_4(self,data):
         x,y = data
@@ -221,7 +223,7 @@ class DistopiaData(Data):
         for key,samples in design_dict.items():
             design_dict[key] = samples[start:limit]
         return design_dict
- 
+
 
     def filter_by_metrics(self,data):
         '''remove all the data with labels that have nonzero weight on metrics that are not on our list
@@ -314,9 +316,9 @@ class DistopiaData(Data):
                 import pdb; pdb.set_trace()
                 windowed_x = np.concatenate([windowed_x,wxs])
                 windowed_y = np.concatenate([windowed_y, self.task_str2arr(y)])
-        
+
         return windowed_x,windowed_y
-        
+
 
         for key,samples in design_dict.items():
             design_dict[key] = self.window_stack(samples,self.window_step,self.window_size)
@@ -336,7 +338,7 @@ class DistopiaData(Data):
         lengths = [len(samples) for samples in design_dict.values()]
         n_samples = np.sum(lengths)
         print("allocating space.")
-        
+
         print("converting {} designs.".format(n_samples))
         if self.n_workers < 2:
             x = np.zeros((n_samples,72,8),dtype=np.uint8)
@@ -460,5 +462,5 @@ class DistopiaData(Data):
                     last_idx = idx
                 if start_idx < last_idx:
                     task_dict[key].append(x[start_idx:last_idx]) #close up the last one
-        
+
         return task_dict

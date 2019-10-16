@@ -33,7 +33,7 @@ class Data:
 
 
     def check_supported_fmt(fmt):
-        '''Check if a format is supported by this data class 
+        '''Check if a format is supported by this data class
             (for reading or writing to file)
             Returns True if supported, False if not.
         '''
