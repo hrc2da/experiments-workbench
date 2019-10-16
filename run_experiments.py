@@ -2,6 +2,7 @@ import glob
 import yaml
 from run_utils import setup_log_dir, import_params
 import os
+from threading import Thread
 
 if os.name == 'nt':
     experiment_spec_fpaths = glob.glob("experiments/*.spec.yaml")
@@ -27,4 +28,4 @@ for fpath in experiment_spec_fpaths:
 
 
     print("Running experiment {}: \n\t{}".format(fpath.split('\\')[-1],specs['experiment_description']))
-    specs['experiment_type']().run(specs)
+    Thread(target=specs['experiment_type']().run,args=specs).start()
