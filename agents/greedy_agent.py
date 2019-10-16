@@ -155,4 +155,3 @@ class GreedyAgent(Agent):
         else:
             print("n_steps: {}, samples: {}, resets: {}, none_valids: {}, randoms: {}".format(n_steps, samples, resets, no_valids, randoms), self.reward_weights)
             return design_log, norm_metrics, reward_log
-

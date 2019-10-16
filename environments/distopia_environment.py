@@ -64,7 +64,7 @@ class DistopiaEnvironment(Environment):
         # mean ratio of democrats over all voters in each district (could go either way)
         # normalization: [0,1]
         'projected_votes': lambda s, d: np.mean([[m['scalar_value']/m['scalar_maximum'] for m in dm['metrics'] if m['name'] == 'projected_votes'][0] for dm in d]),
-            #[dm['metrics']['projected_votes']['scalar_value'] / dm['metrics']['projected_votes']['scalar_maximum'] for dm in d]),
+        #[dm['metrics']['projected_votes']['scalar_value'] / dm['metrics']['projected_votes']['scalar_maximum'] for dm in d]),
         # std of ratio of nonminority to minority over districts
         # normalization: [0, ]
         'race': lambda s, d: np.std([[m['scalar_value'] for m in dm['metrics'] if m['name'] == 'race'][0] for dm in d]),
@@ -93,6 +93,22 @@ class DistopiaEnvironment(Environment):
         self.evaluator = VoronoiAgent()
         self.evaluator.load_data()
         self.state = {}
+        self.mean_array = self.std_array = None
+
+    def set_normalization(self, standard_file, st_metrics):
+        #Only reason this is a seperate method is so that I can instantiate distopia_environment
+        #and set up normalization without doing anything else in distopia_human_logs_processor
+        with open(standard_file, 'rb') as f:
+            self.mean_array, self.std_array = pickle.load(f)
+            if type(self.mean_array) is not np.ndarray:
+                self.mean_array = np.array(self.mean_array)
+            if type(self.std_array) is not np.ndarray:
+                self.std_array = np.array(self.std_array)
+            # cut down the metrics to the ones that we are using.
+            # this is not going to work if they are out of order
+            # TODO: generalize this, maybe by adding metadata to the data file
+            self.mean_array = self.mean_array[:len(st_metrics)]
+            self.std_array = self.std_array[:len(st_metrics)]
 
     def set_params(self, specs_dict):
         metrics = specs_dict['metrics']
@@ -104,20 +120,8 @@ class DistopiaEnvironment(Environment):
             self.set_metrics(metrics)
         if 'standardization_file' in specs_dict and specs_dict['standardization_file'] is not None:
             # hopefully the above condition short-circuits
-            with open(specs_dict['standardization_file'], 'rb') as f:
-                self.mean_array, self.std_array = pickle.load(f)
-                if type(self.mean_array) is not np.ndarray:
-                    self.mean_array = np.array(self.mean_array)
-                if type(self.std_array) is not np.ndarray:
-                    self.std_array = np.array(self.std_array)
-                # cut down the metrics to the ones that we are using.
-                # this is not going to work if they are out of order
-                # TODO: generalize this, maybe by adding metadata to the data file
-                self.mean_array = self.mean_array[:len(self.metrics)]
-                self.std_array = self.std_array[:len(self.metrics)]
+            self.set_normalization(specs_dict['standardization_file'], self.metrics)
 
-        else:
-            self.mean_array = self.std_array = None
 
 
     def gencoordinates(self, m, n, j, k):
