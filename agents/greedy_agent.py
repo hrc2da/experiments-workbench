@@ -22,9 +22,9 @@ class GreedyAgent(Agent):
         if 'task' in specs_dict:
             task = specs_dict['task']
             if task == []:
-                self.reward_weights = [1 for _ in range(num_metrics)]
+                self.reward_weights = [1 for _ in range(self.num_metrics)]
             else:
-                assert len(task) == num_metrics
+                assert len(task) == self.num_metrics
                 self.reward_weights = task
 
     def set_task(self, task):
