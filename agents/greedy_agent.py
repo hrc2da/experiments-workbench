@@ -14,6 +14,9 @@ class GreedyAgent(Agent):
         print('initializing greedy agent')
         self.reward_weights = []
 
+    def seed(self,seed):
+        np.random.seed(seed)
+
     def set_params(self, specs_dict):
         self.num_metrics = specs_dict['num_metrics']
         if 'task' in specs_dict:
@@ -23,7 +26,7 @@ class GreedyAgent(Agent):
             else:
                 assert len(task) == num_metrics
                 self.reward_weights = task
-    
+
     def set_task(self, task):
         assert len(task) == self.num_metrics
         self.reward_weights = task

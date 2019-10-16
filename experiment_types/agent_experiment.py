@@ -18,8 +18,12 @@ def run_agent(specs,task,progress_queue):
     agent = specs['agent']()
     environment = specs['environment']()
     environment.set_params(specs['environment_params'])
+    
     agent.set_params(specs['agent_params'])
     agent.set_task(task)
+    if 'random_seed' in specs:
+        environment.seed(specs['random_seed'])
+        agent.seed(specs['random_seed'])
     design, metric, reward = agent.run(environment,specs['n_steps'],status=progress_queue)
     for ind, m in enumerate(metric):
         this_step = {}
