@@ -16,6 +16,8 @@ metrics = ['population', 'pvi', 'compactness']
 data_dir = sys.argv[1]
 input_glob = sorted(glob(os.path.join(str(data_dir),'*logs.csv')))
 output_dir = os.path.join(str(data_dir),"images")
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
 
 def plot_trajectory(trajectory, title="", prefix="", names=[],outdir=None):
     labels = names
