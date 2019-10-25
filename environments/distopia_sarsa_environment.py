@@ -8,7 +8,7 @@ from distopia.app.agent import VoronoiAgent
 from distopia.mapping._voronoi import ColliderException
 
 
-class DistopiaEnvironment(Environment):
+class DistopiaSARSAEnvironment(Environment):
     # want to define the voronoi agent for districts and metrics calculations
     # scalar_value is mean over districts
     # scalar_std is standard deviation between districts
@@ -255,6 +255,8 @@ class DistopiaEnvironment(Environment):
             new_state = deepcopy(self.state)
             new_state[block_to_move][0] = (mx, my)
             return new_state
+        else:
+            return -1
 
 
     def get_neighbors(self, district, block):
@@ -335,11 +337,11 @@ class DistopiaEnvironment(Environment):
             if from_json:
                 metric_name = state_metric["name"]
                 if metric_name in metric_names:
-                    metric_dict[metric_name] = DistopiaEnvironment.json_metric_extractors[metric_name](state_metric, districts)
+                    metric_dict[metric_name] = DistopiaSARSAEnvironment.json_metric_extractors[metric_name](state_metric, districts)
             else:
                 metric_name = state_metric.name
                 if metric_name in metric_names:
-                    metric_dict[metric_name] = DistopiaEnvironment.metric_extractors[metric_name](state_metric, districts)
+                    metric_dict[metric_name] = DistopiaSARSAEnvironment.metric_extractors[metric_name](state_metric, districts)
 
         metrics = np.array([metric_dict[metric] for metric in metric_names])
         return metrics
@@ -398,5 +400,5 @@ class DistopiaEnvironment(Environment):
 
 if __name__ == "__main__":
     print("Initializing a test sarsa environment")
-    testEnv = DistopiaEnvironment()
+    testEnv = DistopiaSARSAEnvironment()
     print("the evaluator is now: ")
