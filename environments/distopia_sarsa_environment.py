@@ -215,7 +215,7 @@ class DistopiaEnvironment(Environment):
         return neighbors
 
     def get_random_move(self, x, y):
-        """For the Q learning, also constraining random move to up down left right of self.step 
+        """For the Q learning, also constraining random move to up down left right of self.step
         pixels each time"""
         moves = [np.array((self.step, 0)), np.array((-self.step, 0)),
                  np.array((0, self.step)), np.array((0, -self.step))]
@@ -240,7 +240,7 @@ class DistopiaEnvironment(Environment):
     def make_move(self, block_to_move, direction):
         """Moves the specified block in the specified direction, return the new design"""
 
-        moves = [np.array((0, self.step)), np.array((0, -self.step)), 
+        moves = [np.array((0, self.step)), np.array((0, -self.step)),
                  np.array((self.step, 0)), np.array((-self.step, 0))]
         constraints = [lambda x, y: x < self.x_max,
                         lambda x, y: x > self.x_min,
@@ -282,8 +282,9 @@ class DistopiaEnvironment(Environment):
                 neighbors.append((new_neighbor,move))
 
         return neighbors
-    
 
+    def get_boundaries(self):
+        return [self.x_min, self.x_max, self.y_min, self.y_max]
 
     def check_legal_districts(self, districts):
         if len(districts) == 0:
