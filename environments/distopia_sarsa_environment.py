@@ -1,4 +1,4 @@
-qfrom random import randint
+from random import randint
 import itertools
 import numpy as np
 from copy import deepcopy
@@ -80,7 +80,7 @@ class DistopiaEnvironment(Environment):
     def __init__(self, x_lim=(100, 900), y_lim=(100, 900),
                  step_size=5, step_min=50, step_max=100,
                  pop_mean=None, pop_std=None):
-        print('initializing DistopiaEnvironment')
+        print('initializing sarsa environment (lower resolution)')
         self.x_min, self.x_max = x_lim
         self.y_min, self.y_max = y_lim
         self.step = step_size
@@ -181,6 +181,8 @@ class DistopiaEnvironment(Environment):
         return neighborhood
 
     def get_sampled_neighborhood(self, n_blocks, n_directions, resample=False):
+        # Zhilong: I think we won't need this function for the Q learning agent,
+        # We probably only need the get_neighborhood() function
         '''Sample n_blocks * n_direction neighbors.
 
         take n blocks, and move each one according to m direction/angle pairs
@@ -213,9 +215,18 @@ class DistopiaEnvironment(Environment):
         return neighbors
 
     def get_random_move(self, x, y):
-        dist,angle = (np.random.randint(self.step_min, self.step_max),
-                        np.random.uniform(2*np.pi))
-        return (int(x + np.cos(angle) * dist), int(y + np.sin(angle) * dist))
+        """For the Q learning, also constraining random move to up down left right of self.step 
+        pixels each time"""
+        moves = [np.array((self.step, 0)), np.array((-self.step, 0)),
+                 np.array((0, self.step)), np.array((0, -self.step))]
+        rand_move = np.random.choice(moves)
+        # Make the move, if out of bounds, don't move
+        new_x = int(x + rand_move[0])
+        new_y = int(y + rand_move[1])
+        if self.check_boundaries(new_x, new_y):
+            return (new_x, new_y)
+        else:
+            return (x, y)
 
     def check_boundaries(self, x, y):
         '''Return true if inside screen boundaries
@@ -226,10 +237,29 @@ class DistopiaEnvironment(Environment):
             return False
         return True
 
+    def make_move(self, block_to_move, direction):
+        """Moves the specified block in the specified direction, return the new design"""
+
+        moves = [np.array((0, self.step)), np.array((0, -self.step)), 
+                 np.array((self.step, 0)), np.array((-self.step, 0))]
+        constraints = [lambda x, y: x < self.x_max,
+                        lambda x, y: x > self.x_min,
+                        lambda x, y: y < self.y_max,
+                        lambda x, y: y > self.y_min]
+
+        move = moves[direction]
+        x, y = self.state[block_to_move][0] # here assuming each district only holds one block
+        mx, my = (x, y) + move
+        if constraints[direction](mx, my) and (mx, my) not in self.occupied:
+            # TODO: Right now if invalid move, simply ignoring
+            new_state = deepcopy(self.state)
+            new_state[block_to_move][0] = (mx, my)
+            return new_state
+
+
     def get_neighbors(self, district, block):
         '''Get all the designs that move "block" by one step.
-
-
+        moves are up down left right for self.step pixels
         ignores moves to coords that are occupied or out of bounds
         '''
         neighbors = []
@@ -252,6 +282,8 @@ class DistopiaEnvironment(Environment):
                 neighbors.append((new_neighbor,move))
 
         return neighbors
+    
+
 
     def check_legal_districts(self, districts):
         if len(districts) == 0:
@@ -361,3 +393,9 @@ class DistopiaEnvironment(Environment):
                 fixed.append(0.0) # x
                 fixed.append(0.0) # y
         return fixed
+
+
+if __name__ == "__main__":
+    print("Initializing a test sarsa environment")
+    testEnv = DistopiaEnvironment()
+    print("the evaluator is now: ")
