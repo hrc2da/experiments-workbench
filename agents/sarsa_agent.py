@@ -115,13 +115,15 @@ class SARSAAgent(Agent):
             next_action = self.next_action(q_table, game_boundries, environment, eps, eps_min, eps_decay)
             curr_state_coords = self.get_state_coords(q_table, game_boundries, old_state)
             next_state_coords = self.get_state_coords(q_table, game_boundries, stepped_design)
-            for block_ind in range(len(curr_state_coords)):
-                state_row, state_col = curr_state_coords[block_ind]
-                next_row, next_col = next_state_coords[block_ind]
-                q_table[block_ind, best_action, state_row, state_col] = \
+            block = best_action[0]
+            move = best_action[1]
+            state_row, state_col = curr_state_coords[block]
+            next_row, next_col = next_state_coords[block]
+
+            q_table[block, move, state_row, state_col] = \
                 learning_coeff * \
-                (reward - discount_coeff*q_table[block_ind, next_action, next_row, next_col] - q_table[block_ind, best_action, state_row, state_col])
-            
+                (reward - discount_coeff*q_table[next_action[0], next_action[1], next_row, next_col] - q_table[block, move, state_row, state_col])
+            # TODO: Don't know if the above update is correct given the 4d table
 
             environment.occupied = set(itertools.chain(*environment.state.values()))
             best_action = next_action
