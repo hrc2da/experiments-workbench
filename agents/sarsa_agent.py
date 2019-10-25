@@ -29,27 +29,38 @@ class SARSAAgent(Agent):
         self.reward_weights = task
 
     def get_state_coords(self, q_table, boundries, state):
-        block_x, block_y = state[0][0]
-        row = np.size(q_table,2) - (block_y-boundries[2])
-        col = block_x-boundries[0]
-        return row, col
+        """Return the coordinates of all the 8 blocks in a list of (rol, col)"""
+        state_coords = []
+        for i in range(np.size(q_table, 0)):
+            block_x, block_y = state[i][0]
+            row = np.size(q_table,2) - (block_y-boundries[2])
+            col = block_x-boundries[0]
+            state_coords.append((row, col))
+        return state_coords
 
     def next_action(self, q_table, boundries, environment, eps, eps_min, eps_decay):
+        num_blocks = np.size(q_table, 0)
+        num_actions = np.size(q_table, 1)
         cur_state = environment.state
-        row, col  = self.get_state_coords(q_table, boundries, cur_state)
-        actions = [q_table[i][row][col] for i in range(np.size(q_table,0))]
-        actions_array = np.array(actions)
+        state_coords  = self.get_state_coords(q_table, boundries, cur_state)
+        # Now actions will be a |blocks|x|actions| array instead
+        actions_array = np.random.rand(num_blocks, num_actions)
+        for j, c in enumerate(state_coords):
+            row, col = c
+            actions = [q_table[j][i][row][col] for i in range(num_actions)]
+            actions_array[j, :] = actions
+        # best_action is a tuple of (block#, direction)
         done=False
         while done==False:
             if np.random.rand() < eps:
-                best_action = np.random.randint(0, len(actions_array))
+                best_action = (np.random.randint(0, num_blocks), np.random.randint(0, num_actions))
             else:
-                best_action = np.argmax(actions_array)
+                best_action = np.unravel_index(np.argmax(actions_array), actions_array.shape)
             if eps > eps_min:
                 eps *= eps_decay
             if eps < eps_min:
                 eps = eps_min
-            if environment.make_move(0,best_action) == -1:
+            if environment.make_move(best_action[0], best_action[1]) == -1:
                 print("DELETING ACTION...OUT OF BOUNDS")
                 print(best_action)
                 np.delete(actions_array, best_action)
@@ -76,7 +87,8 @@ class SARSAAgent(Agent):
         # 4: block1 up ..., 31: block7 right} --> for now only block0 moves
         game_boundries=environment.get_boundaries()
         #If we are moving only one block, there are only (x_max-x_min) * (y_max - y_min) states
-        q_table = np.random.rand(4, game_boundries[3] - game_boundries[2], game_boundries[1] - game_boundries[0])
+        # 4D Q table to account for all 8 blocks
+        q_table = np.random.rand(8, 4, game_boundries[3] - game_boundries[2], game_boundries[1] - game_boundries[0])
 #        states = [environment.state] # use an array to keep track of states, built as we go
 
         if logger is None:
@@ -92,34 +104,31 @@ class SARSAAgent(Agent):
             # Logic for the sarsa agent:
             # at each step, get all the neighbors and compute the rewards and metrics, put into q table
             i += 1
-            if i % 100 == 0:
-                last_reward = float("-inf")
-                environment.reset(initial)
-            count = 0
-            # take the max reward step from this current state
-            #best_action = np.argmax(q_table[:, -1])
-            #block_to_move = best_action//8
-            #direction = best_action
-            stepped_design = environment.make_move(0, best_action)
+
+            # removed random restart after 100 steps. 
+            stepped_design = environment.make_move(best_action[0], best_action[1])
             metric = environment.get_metrics(stepped_design)
             reward = environment.get_reward(metric, self.reward_weights)
             # go back to the q table to update the reward of taking this step
             old_state = environment.state
             environment.take_step(stepped_design)
             next_action = self.next_action(q_table, game_boundries, environment, eps, eps_min, eps_decay)
-            state_row, state_col = self.get_state_coords(q_table, game_boundries, old_state)
-            next_row, next_col = self.get_state_coords(q_table, game_boundries, stepped_design)
-            q_table[best_action, state_row, state_col] =  learning_coeff * (reward - discount_coeff*q_table[next_action, next_row, next_col] - q_table[best_action, state_row, state_col])
-            # TODO how to add a new row of rewards to the q table?
-
-    #        states.append(stepped_design)  # append this new design
+            curr_state_coords = self.get_state_coords(q_table, game_boundries, old_state)
+            next_state_coords = self.get_state_coords(q_table, game_boundries, stepped_design)
+            for block_ind in range(len(curr_state_coords)):
+                state_row, state_col = curr_state_coords[block_ind]
+                next_row, next_col = next_state_coords[block_ind]
+                q_table[block_ind, best_action, state_row, state_col] = \
+                learning_coeff * \
+                (reward - discount_coeff*q_table[block_ind, next_action, next_row, next_col] - q_table[block_ind, best_action, state_row, state_col])
+            
 
             environment.occupied = set(itertools.chain(*environment.state.values()))
             best_action = next_action
             if status is not None:
                 status.put('next')
             if logger is not None:
-                logger.write(str([time.perf_counter(), count, list(metric), environment.state]) + '\n')
+                logger.write(str([time.perf_counter(), i, list(metric), environment.state]) + '\n')
             else:
                 mappend(metric)
                 dappend(environment.state)

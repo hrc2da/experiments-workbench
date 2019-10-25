@@ -321,14 +321,6 @@ class DistopiaSARSAEnvironment(Environment):
         if not self.check_legal_districts(districts):
             return None
         return self.extract_metrics(self.metrics,state_metrics,districts)
-        # metric_dict = {}
-        # for state_metric in state_metrics:
-        #     metric_name = state_metric.name
-        #     if metric_name in self.metrics:
-        #         metric_dict[metric_name] = self.metric_extractors[metric_name](state_metric, districts)
-
-        # metrics = np.array([metric_dict[metric] for metric in self.metrics])
-        # return metrics
 
     @staticmethod
     def extract_metrics(metric_names,state_metrics,districts,from_json=False):
