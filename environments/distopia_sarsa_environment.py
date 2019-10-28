@@ -122,7 +122,7 @@ class DistopiaSARSAEnvironment(Environment):
             # hopefully the above condition short-circuits
             self.set_normalization(specs_dict['standardization_file'], self.metrics)
 
-
+        print(self.metrics)
 
     def gencoordinates(self, m, n, j, k):
         '''Generate random coordinates in range x: (m,n) y:(j,k)
@@ -159,16 +159,15 @@ class DistopiaSARSAEnvironment(Environment):
             return self.state
 
         else:
-            self.occupied = set()
-            self.state = {}
-            # Place one block for each district, randomly
-            for i in range(n_districts):
-                self.state[i] = [next(self.coord_generator)]
-            initial_blocks = [p[0] for p in self.state.values()]
-
-            # add more blocks...
-
-            return self.state
+            while True:
+                self.occupied = set()
+                self.state = {}
+                # Place one block for each district, randomly
+                for i in range(n_districts):
+                    self.state[i] = [next(self.coord_generator)]
+                initial_blocks = [p[0] for p in self.state.values()]
+                if self.get_metrics(self.state) is not None:
+                    return self.state
 
     def get_neighborhood(self, n_steps):
         '''Get all the configs that have one block n_steps away from the current
@@ -240,13 +239,12 @@ class DistopiaSARSAEnvironment(Environment):
     def make_move(self, block_to_move, direction):
         """Moves the specified block in the specified direction, return the new design"""
 
-        moves = [np.array((0, self.step)), np.array((0, -self.step)),
-                 np.array((self.step, 0)), np.array((-self.step, 0))]
+        moves = [np.array((self.step, 0)), np.array((-self.step, 0)),
+                 np.array((0, self.step)), np.array((0, -self.step))]
         constraints = [lambda x, y: x < self.x_max,
                         lambda x, y: x > self.x_min,
                         lambda x, y: y < self.y_max,
                         lambda x, y: y > self.y_min]
-
         move = moves[direction]
         x, y = self.state[block_to_move][0] # here assuming each district only holds one block
         mx, my = (x, y) + move
@@ -308,17 +306,16 @@ class DistopiaSARSAEnvironment(Environment):
         except ColliderException:
             if exc_logger is not None:
                 exc_logger.write(str(design) + '\n')
-            else:
                 print("Collider Exception!")
             return None
         except AssertionError as e:
             if exc_logger is not None:
                 exc_logger.write(str(design) + '\n')
-            else:
                 print("Assertion failed: {}".format(e.args))
             return None
 
         if not self.check_legal_districts(districts):
+            print("Districts not legal")
             return None
         return self.extract_metrics(self.metrics,state_metrics,districts)
 
