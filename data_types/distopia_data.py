@@ -27,9 +27,11 @@ class DistopiaData(Data):
         # else:
         #     self.n_workers = 1
 
-    def load_agent_data(self, fname,fmt=None, labels_path=None, append=False, load_designs=False, load_metrics=False):
+    def load_agent_data(self, fname,fmt=None, labels_path=None, append=False, load_designs=False, load_metrics=False, norm_file=None):
         """Loads the log file from running agent
             Assumes that the log file contains data from multiple tasks"""
+        env = DistopiaEnvironment()  # TODO: This is a temp fix to standardize human metrics
+        env.set_normalization(norm_file, self.metric_names)
         logs = self.load_json(fname)
         cur_task = None
         cur_trajectory = []
@@ -49,7 +51,8 @@ class DistopiaData(Data):
                 if load_metrics:
                     assert hasattr(self, "metric_names")
 #                    metrics_str = step['metrics'].replace(" ", ",")
-                    step_metrics = self.task_str2arr(step['metrics'])
+                    step_metrics = env.standardize_metrics(self.task_str2arr(step['metrics']))
+#                    step_metrics = self.task_str2arr(step['metrics'])
                     step_tuple.append(step_metrics)
                 cur_trajectory.append(step_tuple)
             trajectories.append((cur_trajectory[:], cur_task))

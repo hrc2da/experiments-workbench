@@ -140,12 +140,13 @@ class SARSAAgent(Agent):
                 mappend(metric)
                 dappend(environment.state)
                 rappend(reward)
+
         # normalize metrics
         norm_metrics = []
-        for m in metric_log:
-            norm_metrics.append(environment.standardize_metrics(m))
+        # for m in metric_log:
+        #     norm_metrics.append(environment.standardize_metrics(m))
         if logger is not None:
             return "n_steps: {}, samples: {}, resets: {}, none_valids: {}, randoms: {}".format(n_steps, samples, resets, no_valids, randoms), self.reward_weights
         else:
             print("n_steps: {}, samples: {}, resets: {}, none_valids: {}, randoms: {}".format(n_steps, samples, resets, no_valids, randoms), self.reward_weights)
-            return design_log, norm_metrics, reward_log
+            return design_log, metric_log, reward_log

@@ -43,7 +43,7 @@ for i in range(len(logpaths)):
     if is_human:
         data.load_data(logfile,append=True,load_designs=False,load_metrics=True, norm_file = norm_dir)
     else:
-        data.load_agent_data(logfile,append=True,load_designs=False,load_metrics=True)
+        data.load_agent_data(logfile,append=True,load_designs=False,load_metrics=True, norm_file = norm_dir)
     if new_user == True:
         fname = os.path.join(data_dir,"{}_logs".format(file_attr[0]))
         print(fname)
