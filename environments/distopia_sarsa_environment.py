@@ -166,7 +166,8 @@ class DistopiaSARSAEnvironment(Environment):
                 for i in range(n_districts):
                     self.state[i] = [next(self.coord_generator)]
                 initial_blocks = [p[0] for p in self.state.values()]
-                if self.get_metrics(self.state) is not None:
+                districts = self.evaluator.get_voronoi_districts(self.state)
+                if districts is not None:
                     return self.state
 
     def get_neighborhood(self, n_steps):
