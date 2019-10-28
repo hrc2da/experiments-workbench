@@ -15,5 +15,6 @@ class Agent:
 
 # add any agents you write to this list and __all__
 import agents.greedy_agent
+import agents.sarsa_agent
 # import agents.bayesopt_agent
 __all__ = ['greedy_agent', 'sarsa_agent']#,'bayesopt_agent']

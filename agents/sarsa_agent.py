@@ -81,7 +81,7 @@ class SARSAAgent(Agent):
         if logger is None and hasattr(self,'logger') and self.logger is not None:
             logger = self.logger
 
-        environment.reset(initial)
+        environment.reset(initial, max_blocks_per_district = 1)
         i = 0
         last_reward = float("-inf")
         no_valids = 0
