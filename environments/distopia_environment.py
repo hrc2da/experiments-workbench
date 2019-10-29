@@ -357,6 +357,16 @@ class DistopiaEnvironment(Environment):
             if type(metrics) is not np.ndarray:
                 metrics = np.array(metrics)
             return (metrics - self.mean_array)/self.std_array
+    
+    def destandardize_metrics(self, metrics):
+        '''Undo's standardization
+        '''
+        if self.mean_array is None or self.std_array is None:
+            return metrics
+        else:
+            if type(metrics) is not np.ndarray:
+                metrics = np.array(metrics)
+            return metrics*self.std_array + self.mean_array
 
     def fixed2dict(self, fixed_arr):
         '''Convert a fixed array of nx8 to an 8 district dict

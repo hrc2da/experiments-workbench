@@ -36,7 +36,7 @@ class DistopiaData(Data):
         trajectories = []
         task_counter = 0
         for log in logs:
-            trajectories.append((cur_trajectory[:], cur_task))
+            #trajectories.append((cur_trajectory[:], cur_task))
             cur_task = log["task"]
             print(cur_task)
             cur_trajectory = []
@@ -59,13 +59,24 @@ class DistopiaData(Data):
         else:
             self.y = list(self.y)
             self.x = list(self.x)
+        x = []
+        y = []
         for trajectory in trajectories:
             samples, task = trajectory
             for sstep in samples:
-                self.x.append(*sstep)  # any sample data
-                self.y.append(task)  # task
+                x.append(*sstep)  # any sample data
+                y.append(task)  # task
+        
+        for preprocessor in self.preprocessors:
+                x,y = getattr(self,preprocessor)((x,y))
+        for i in x:
+            self.x.append(i)
+        for j in y:
+            self.y.append(j)
+        
         self.x = np.array(self.x)
         self.y = np.array(self.y)
+        
 
     def load_data(self, fname, fmt=None, labels_path=None, append=False, load_designs=False, load_metrics=False, norm_file = None, load_fiducials=False):
         if fmt is None:
@@ -73,16 +84,16 @@ class DistopiaData(Data):
         print(fmt)
         if fmt == "pkl" or fmt== "pk":
             metrics,designs = self.load_pickle(fname)
-            import pdb; pdb.set_trace()
             if not hasattr(self,'feature_type'):
                 raw_data = designs
             elif self.feature_type == "metrics":
-                raw_data = metrics
+                raw_data = self.taskdict2vect(metrics)
             elif self.feature_type == "designs":
                 raw_data = designs
-            for preprocessor in self.preprocessors:
-                raw_data = getattr(self,preprocessor)(raw_data) #design_dict2mat_labelled(raw_data)
             self.x,self.y = raw_data
+            for preprocessor in self.preprocessors:
+                self.x,self.y = getattr(self,preprocessor)((self.x,self.y)) #design_dict2mat_labelled(raw_data)
+            
             # try to force de-allocation
             raw_data = None
         elif fmt == "npy":
@@ -92,8 +103,8 @@ class DistopiaData(Data):
             for preprocessor in self.preprocessors:
                 self.x,self.y = getattr(self,preprocessor)((self.x,self.y))
         elif fmt == "json": #it's a log file (for now)
-            env = DistopiaEnvironment()  # TODO: This is a temp fix to standardize human metrics
-            env.set_normalization(norm_file, self.metric_names)
+            # env = DistopiaEnvironment()  # TODO: This is a temp fix to standardize human metrics
+            # env.set_normalization(norm_file, self.metric_names)
             logs = self.load_json(fname)
             trajectories = [] # tuple of trajectory, focus_trajectory, and label
             cur_task = None
@@ -102,7 +113,6 @@ class DistopiaData(Data):
             cur_trajectory_metrics = []
             cur_trajectory = []
             task_counter = 0
-            print(logs)
             for log in logs:
                 keys = log.keys()
                 step_tuple = []
@@ -128,9 +138,10 @@ class DistopiaData(Data):
                     if load_metrics == True:
                         assert hasattr(self,"metric_names")
                         #perform normalization on human data
-                        step_metrics = env.standardize_metrics(
-                            DistopiaEnvironment.extract_metrics(self.metric_names,log['districts']['metrics'],
-                                                                log['districts']['districts'],from_json=True))
+                        # step_metrics = env.standardize_metrics(DistopiaEnvironment.extract_metrics(self.metric_names,log['districts']['metrics'],
+                        #                                         log['districts']['districts'],from_json=True))
+                        step_metrics = DistopiaEnvironment.extract_metrics(self.metric_names,log['districts']['metrics'],
+                                                                log['districts']['districts'],from_json=True)
 #                        step_metrics = DistopiaEnvironment.extract_metrics(self.metric_names,log['districts']['metrics'],log['districts']['districts'],from_json=True)
                         step_tuple.append(step_metrics)
                     cur_trajectory.append(step_tuple)
@@ -141,13 +152,24 @@ class DistopiaData(Data):
             else:
                 self.y = list(self.y)
                 self.x = list(self.x)
+            x = []
+            y = []
             for trajectory in trajectories:
                 samples,task = trajectory
                 for sstep in samples:
-                    self.x.append(*sstep) #any sample data
-                    self.y.append(task) #task
+                    x.append(*sstep) #any sample data
+                    y.append(task) #task
+            for preprocessor in self.preprocessors:
+                x,y = getattr(self,preprocessor)((x,y))
+            #TODO: make this more efficient. probably use np concat or something
+            for i in x:
+                self.x.append(i)
+            for j in y:
+                self.y.append(j)
             self.x = np.array(self.x)
             self.y = np.array(self.y)
+            
+            
 
         elif fmt == "csv":
             # TODO: no pre-processing for now, let's fix this later.
@@ -164,7 +186,10 @@ class DistopiaData(Data):
                 self.x = np.concatenate((self.x, raw_x))
                 self.y = np.concatenate((self.y, raw_y))
     def generate_task_dicts(self,dim):
-        self.task_labels = hierarchical_sort(list(map(np.array,itertools.product(*[[-1., 0., 1.]]*dim))))
+        if not hasattr(self, "task_labels"):
+            self.task_labels = hierarchical_sort(list(map(np.array,itertools.product(*[[-1., 0., 1.]]*dim))))
+        else:
+            self.task_labels = hierarchical_sort(list(map(np.array,self.task_labels)))
         self.task_ids = {self.task_arr2str(task) : i for i,task in enumerate(self.task_labels)}
         self.task_dict = {self.task_arr2str(task) : task for task in self.task_labels}
     # pre-processing functions
@@ -181,7 +206,42 @@ class DistopiaData(Data):
         np.save(xfname, self.x)
         np.save(yfname, self.y)
 
+    def standardize(self,data,standardization_file=None):
+        env = DistopiaEnvironment()
+        if standardization_file is None:
+            if self.standardization_file is None:
+                raise ValueError("No standardization params are set!")
+            else:
+                standardization_file = self.standardization_file
+                
+        env.set_normalization(standardization_file, self.metric_names)
+
+        x,y = data
+        return env.standardize_metrics(x),y
+
+    def destandardize(self,data,standardization_file=None):
+        env = DistopiaEnvironment()
+        if standardization_file is None:
+            if self.standardization_file is None:
+                raise ValueError("No standardization params are set!")
+            else:
+                standardization_file = self.standardization_file
+                
+        env.set_normalization(standardization_file, self.metric_names)
+
+        x,y = data
+        return env.destandardize_metrics(x),y
+
     # pre-process labels
+    def filter_by_task(self,data):
+        x,y = data
+        labels = list(self.task_dict.keys())
+        mask = [self.task_arr2str(label) in labels for label in y]
+
+        return x[mask],y[mask]
+    def slice_metrics_to_3(self,data):
+        x,y = data
+        return x[:,:3],y
     def slice_metrics_to_4(self,data):
         x,y = data
         return x[:,:4],y
@@ -192,6 +252,14 @@ class DistopiaData(Data):
             y_out.append(self.task_ids[self.task_arr2str(label)])
         print(y_out[:10])
         return x,y_out
+
+    def class2onehot(self,data):
+        x,y = data
+        y_out = []
+        for label in y:
+            y_out.append(self.task_labels[label])
+        return x,np.array(y_out)
+
     @staticmethod
     def unflatten_districts(data):
         flattened_arr_list,labels = data
@@ -245,6 +313,8 @@ class DistopiaData(Data):
 
 
     def sliding_window(self,data,window_size=40):
+        if hasattr(self,"window_size"):
+            window_size = self.window_size
         # should probably also check if metrics or designs here
         if type(data) == dict:
             # chunk into 50 and slide the window
@@ -270,6 +340,28 @@ class DistopiaData(Data):
                     y_out.append(self.task_str2arr(key))
                     i += 1
         return np.array(x_out),np.array(y_out)
+    def balance_samples(self,data):
+        '''cuts samples to sample size for each class.
+        Assumes that the order of the data doesn't matter.
+        '''
+        x,y = data
+        labels = set(y)
+        x_ = None
+        y_ = None
+        y = np.array(y)
+        for label in labels:
+            if x_ is None:
+                x_ = x[np.random.choice(np.where(y == label)[0],self.balanced_sample_size)]
+                assert y_ is None
+                y_ = [label for i in range(self.balanced_sample_size)]
+            else:
+                assert len(x_) == len(y_)
+                x_ = np.concatenate([x_,x[np.random.choice(np.where(y == label)[0],self.balanced_sample_size)]])
+                y_ = np.concatenate([y_,[label for i in range(self.balanced_sample_size)]])
+        return x_,y_
+        
+
+
 
 
     def conv3dreshape(self,data):
@@ -464,3 +556,13 @@ class DistopiaData(Data):
                     task_dict[key].append(x[start_idx:last_idx]) #close up the last one
 
         return task_dict
+
+    def taskdict2vect(self,task_dict):
+        # returns x,y from a dict
+        x = []
+        y = []
+        for y_str, x_arr in task_dict.items():
+            for x_row in x_arr:
+                x.append(x_row)
+                y.append(self.task_str2arr(y_str))
+        return np.array(x),np.array(y)
