@@ -12,7 +12,7 @@ class Environment:
             initial: a complete inital block layout
             min_active: the min number of blocks that should be in the active area for each district
             max_active: the max number of blocks that can be in the active area for each district
-        Returns: 
+        Returns:
             observation (object): the initial observation.
         '''
         raise NotImplementedError

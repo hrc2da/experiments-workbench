@@ -18,7 +18,7 @@ def run_agent(specs,task,progress_queue):
     agent = specs['agent']()
     environment = specs['environment']()
     environment.set_params(specs['environment_params'])
-    
+
     agent.set_params(specs['agent_params'])
     agent.set_task(task)
     if 'random_seed' in specs:
@@ -51,20 +51,19 @@ class AgentExperiment(Experiment):
             print("ONLY ONE WORKER!!")
             n_workers = 1
         # helper function to run the experiments in parallel
-        
+
         if 'tasks' in specs['agent_params']:
             tasks = specs['agent_params']['tasks']
         else:
-            tasks = [specs['agent_params']['task']]  
-
+            tasks = [specs['agent_params']['task']]
         n_samples = len(tasks)*specs['n_steps']
         progress_queue = Manager().Queue()
         progress_thread = Thread(target=self.progress_monitor,args=(n_samples,progress_queue))
         progress_thread.start()
-        agent_runners = [] 
-        for task in tasks: 
+        agent_runners = []
+        for task in tasks:
             agent_runners.append((specs,task,progress_queue))
-        
+
         with Pool(n_workers) as pool:
             results = pool.starmap(run_agent, agent_runners)
 

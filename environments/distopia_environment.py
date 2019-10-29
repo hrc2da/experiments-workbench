@@ -242,6 +242,29 @@ class DistopiaEnvironment(Environment):
                         valid_move = self.check_boundaries(mx,my)
         return neighbors
 
+    def make_move(self, block_to_move, direction):
+        """Moves the specified block in the specified direction, return the new design"""
+
+        moves = [np.array((self.step, 0)), np.array((-self.step, 0)),
+                 np.array((0, self.step)), np.array((0, -self.step))]
+        constraints = [lambda x, y: x < self.x_max,
+                        lambda x, y: x > self.x_min,
+                        lambda x, y: y < self.y_max,
+                        lambda x, y: y > self.y_min]
+        move = moves[direction]
+        x, y = self.state[block_to_move][0] # here assuming each district only holds one block
+        mx, my = (x, y) + move
+        if constraints[direction](mx, my) and (mx, my) not in self.occupied:
+            # TODO: Right now if invalid move, simply ignoring
+            new_state = deepcopy(self.state)
+            new_state[block_to_move][0] = (mx, my)
+            return new_state
+        else:
+            return -1
+
+    def get_boundaries(self):
+        return [self.x_min, self.x_max, self.y_min, self.y_max]
+        
     def get_random_move(self, x, y):
         dist,angle = (np.random.randint(self.step_min, self.step_max),
                         np.random.uniform(2*np.pi))
