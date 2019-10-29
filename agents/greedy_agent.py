@@ -46,6 +46,7 @@ class GreedyAgent(Agent):
         samples = 0
         resets = 0
         randoms = 0
+        eps_init = eps
         if logger is None:
             metric_log = []
             mappend = metric_log.append
@@ -57,6 +58,7 @@ class GreedyAgent(Agent):
             i += 1
             if i % 100 == 0:
                 last_reward = float("-inf")
+                eps = eps_init
                 environment.reset(initial)
             count = 0
             best_reward_this_step = []
