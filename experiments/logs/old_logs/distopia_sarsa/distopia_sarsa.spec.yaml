@@ -1,9 +1,9 @@
 agent: agents.sarsa_agent.SARSAAgent
 agent_params:
   num_metrics: 3
-  task: [1, 0, 0]
+  task: [0, 0, 1]
   reset: True
-environment: environments.distopia_sarsa_environment.DistopiaSARSAEnvironment
+environment: environments.distopia_environment.DistopiaEnvironment
 environment_params:
   env_name: distopia
   metrics: [population, pvi, compactness]

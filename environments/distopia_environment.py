@@ -78,8 +78,8 @@ class DistopiaEnvironment(Environment):
         'area': lambda s, d: s['scalar_maximum']
     }
     def __init__(self, x_lim=(100, 900), y_lim=(100, 900),
-                 step_size=5, step_min=50, step_max=100,
-                 pop_mean=None, pop_std=None):
+                 step_size=10, step_min=50, step_max=100,
+                 pop_mean=None, pop_std=None, subsample_scale=10):
         print('initializing DistopiaEnvironment')
         self.x_min, self.x_max = x_lim
         self.y_min, self.y_max = y_lim
@@ -94,6 +94,11 @@ class DistopiaEnvironment(Environment):
         self.evaluator.load_data()
         self.state = {}
         self.mean_array = self.std_array = None
+        self.subsample_scale = subsample_scale  # defaults to 1->no subsampling. 
+        # Usage of subsampling: if subsample scale of n, then starting from xmin and ymin, 
+        # block positions can only be at coordinates at n pixels intervals
+        assert self.step%self.subsample_scale == 0
+        assert self.step>=self.subsample_scale
 
     def set_normalization(self, standard_file, st_metrics):
         #Only reason this is a seperate method is so that I can instantiate distopia_environment
@@ -122,22 +127,26 @@ class DistopiaEnvironment(Environment):
             # hopefully the above condition short-circuits
             self.set_normalization(specs_dict['standardization_file'], self.metrics)
 
-
-
+    
     def gencoordinates(self, m, n, j, k):
         '''Generate random coordinates in range x: (m,n) y:(j,k)
-
         instantiate generator and call next(g)
 
         based on:
         https://stackoverflow.com/questions/30890434/how-to-generate-random-pairs-of-
         numbers-in-python-including-pairs-with-one-entr
+
+        MODIFIED: To handle the case where the map is subsampled to reduce state space 
+        for the SARSA agent
         '''
         seen = self.occupied
-        x, y = randint(m, n), randint(j, k)
+        x_range = np.arange(m, n+1, self.subsample_scale)
+        y_range = np.arange(j, k+1, self.subsample_scale)
+        # print("IN GENCOORDINATES, THE XRANGE IS ", x_range)
+        x, y = np.random.choice(x_range), np.random.choice(y_range)
         while True:
             while (x, y) in seen:
-                x, y = randint(m, n), randint(m, n)
+                x, y = np.random.choice(x_range), np.random.choice(y_range)
             seen.add((x, y))
             yield (x, y)
         return
@@ -162,6 +171,7 @@ class DistopiaEnvironment(Environment):
             return self.state
 
         else:
+            # print("resetting to initial state....")
             self.occupied = set()
             self.state = {}
             # Place one block for each district, randomly
@@ -197,7 +207,8 @@ class DistopiaEnvironment(Environment):
                     if tries < max_tries:
                         self.state[i].append(new_block_coords)
                         self.occupied.add(new_block_coords)
-
+            # print("initial state resetted, printing the current positions")
+            # print(self.state)
             return self.state
 
     def get_neighborhood(self, n_steps):

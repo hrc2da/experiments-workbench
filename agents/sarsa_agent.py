@@ -13,7 +13,6 @@ class SARSAAgent(Agent):
     def __init__(self):
         print('initializing SARSA agent')
         self.reward_weights = []
-        self.q_table = {}
     def set_params(self, specs_dict):
         self.num_metrics = specs_dict['num_metrics']
         if 'task' in specs_dict:
@@ -29,14 +28,16 @@ class SARSAAgent(Agent):
         self.reward_weights = task
 
     def get_state_coords(self, q_table, boundries, state):
-        """Return the coordinates of all the 8 blocks in a list of (rol, col)"""
+        """Return the coordinates of all the 8 blocks in a list of (rol, col) in the q-table
+            With subsampling, this becomes more involved, need to first subsample the map 
+            coordinates and then map to the q-table."""
         state_coords = []
         for i in range(np.size(q_table, 0)):
             block_x, block_y = state[i][0]
-            row = np.size(q_table,2) - 1 - (block_y-boundries[2])
-            col = block_x-boundries[0]
-
+            row = np.where(self.possible_y==block_y)[0][0]
+            col = np.where(self.possible_x==block_x)[0][0]
             state_coords.append((row, col))
+        # print("STATE COORDS ", state_coords)
         return state_coords
 
     def next_action(self, q_table, boundries, environment, eps, eps_min, eps_decay):
@@ -80,8 +81,10 @@ class SARSAAgent(Agent):
         '''
         if logger is None and hasattr(self,'logger') and self.logger is not None:
             logger = self.logger
-
+        subsample_scale = 10 
         environment.reset(initial, max_blocks_per_district = 1)
+        # print("INITIAL STATE ")
+        # print(environment.state)
         i = 0
         last_reward = float("-inf")
         no_valids = 0
@@ -92,11 +95,19 @@ class SARSAAgent(Agent):
         # encode actions as follows: {0: block0 up, 1: block0 down, 2: block0 left, 3: block0 right,
         # 4: block1 up ..., 31: block7 right} --> for now only block0 moves
         game_boundries=environment.get_boundaries()
+        # print("="*30)
+        # print(game_boundries)
+        # print("="*30)
+        self.possible_x = np.arange(game_boundries[2], game_boundries[3]+1, subsample_scale)
+        self.possible_y = np.arange(game_boundries[0], game_boundries[1]+1, subsample_scale)
+
         #If we are moving only one block, there are only (x_max-x_min) * (y_max - y_min) states
         # 4D Q table to account for all 8 blocks
-        q_table = np.random.rand(8, 4, game_boundries[3] - game_boundries[2] + 1 , game_boundries[1] - game_boundries[0]+ 1)
-#        states = [environment.state] # use an array to keep track of states, built as we go
+        subsampled_x = len(self.possible_x)
+        subsampled_y = len(self.possible_y)
 
+        q_table = np.random.rand(8, 4, subsampled_x, subsampled_y)
+        print('Q TABLE SIZE: ', q_table.shape)
         if logger is None:
             metric_log = []
             mappend = metric_log.append
@@ -111,7 +122,6 @@ class SARSAAgent(Agent):
             # at each step, get all the neighbors and compute the rewards and metrics, put into q table
             i += 1
 
-            # removed random restart after 100 steps.
             old_state = environment.state
             stepped_design = environment.make_move(best_action[0], best_action[1])
             metric = environment.get_metrics(stepped_design)
@@ -128,7 +138,6 @@ class SARSAAgent(Agent):
             q_table[best_action[0], best_action[1], state_row, state_col] = \
                 learning_coeff * \
                 (reward + discount_coeff*q_table[next_action[0], next_action[1], next_row, next_col] - q_table[best_action[0], best_action[1], state_row, state_col])
-            # TODO: Don't know if the above update is correct given the 4d table
 
             environment.occupied = set(itertools.chain(*environment.state.values()))
             best_action = next_action
