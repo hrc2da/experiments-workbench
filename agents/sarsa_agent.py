@@ -37,7 +37,7 @@ class SARSAAgent(Agent):
             row = np.where(self.possible_y==block_y)[0][0]
             col = np.where(self.possible_x==block_x)[0][0]
             state_coords.append((row, col))
-        # print("STATE COORDS ", state_coords)
+        # print("STATE CORDS ", state_coords)
         return state_coords
 
     def next_action(self, q_table, boundries, environment, eps, eps_min, eps_decay):
@@ -81,7 +81,7 @@ class SARSAAgent(Agent):
         '''
         if logger is None and hasattr(self,'logger') and self.logger is not None:
             logger = self.logger
-        subsample_scale = 10 
+        subsample_scale = 10
         environment.reset(initial, max_blocks_per_district = 1)
         # print("INITIAL STATE ")
         # print(environment.state)
