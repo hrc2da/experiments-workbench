@@ -43,18 +43,19 @@ class DistopiaData(Data):
             print(cur_task)
             cur_trajectory = []
             task_counter += 1
-            for step in log['run_log']:
-                step_tuple = []
-                if load_designs:
-                    step_districts = self.jsondistricts2mat(step['design'])
-                    step_tuple.append(step_districts)
-                if load_metrics:
-                    assert hasattr(self, "metric_names")
-#                    metrics_str = step['metrics'].replace(" ", ",")
-                    step_metrics = env.standardize_metrics(self.task_str2arr(step['metrics']))
-#                    step_metrics = self.task_str2arr(step['metrics'])
-                    step_tuple.append(step_metrics)
-                cur_trajectory.append(step_tuple)
+            for episode in log['episodes']:
+                for step in episode['run_log']:
+                    step_tuple = []
+                    if load_designs:
+                        step_districts = self.jsondistricts2mat(step['design'])
+                        step_tuple.append(step_districts)
+                    if load_metrics:
+                        assert hasattr(self, "metric_names")
+    #                    metrics_str = step['metrics'].replace(" ", ",")
+                        step_metrics = env.standardize_metrics(self.task_str2arr(step['metrics']))
+    #                    step_metrics = self.task_str2arr(step['metrics'])
+                        step_tuple.append(step_metrics)
+                    cur_trajectory.append(step_tuple)
             trajectories.append((cur_trajectory[:], cur_task))
         if append == False or not hasattr(self, 'x') or not hasattr(self, 'y'):
             self.y = []
@@ -69,17 +70,17 @@ class DistopiaData(Data):
             for sstep in samples:
                 x.append(*sstep)  # any sample data
                 y.append(task)  # task
-        
+
         for preprocessor in self.preprocessors:
                 x,y = getattr(self,preprocessor)((x,y))
         for i in x:
             self.x.append(i)
         for j in y:
             self.y.append(j)
-        
+
         self.x = np.array(self.x)
         self.y = np.array(self.y)
-        
+
 
     def load_data(self, fname, fmt=None, labels_path=None, append=False, load_designs=False, load_metrics=False, norm_file = None, load_fiducials=False):
         if fmt is None:
@@ -96,7 +97,7 @@ class DistopiaData(Data):
             self.x,self.y = raw_data
             for preprocessor in self.preprocessors:
                 self.x,self.y = getattr(self,preprocessor)((self.x,self.y)) #design_dict2mat_labelled(raw_data)
-            
+
             # try to force de-allocation
             raw_data = None
         elif fmt == "npy":
@@ -171,8 +172,8 @@ class DistopiaData(Data):
                 self.y.append(j)
             self.x = np.array(self.x)
             self.y = np.array(self.y)
-            
-            
+
+
 
         elif fmt == "csv":
             # TODO: no pre-processing for now, let's fix this later.
@@ -216,7 +217,7 @@ class DistopiaData(Data):
                 raise ValueError("No standardization params are set!")
             else:
                 standardization_file = self.standardization_file
-                
+
         env.set_normalization(standardization_file, self.metric_names)
 
         x,y = data
@@ -229,7 +230,7 @@ class DistopiaData(Data):
                 raise ValueError("No standardization params are set!")
             else:
                 standardization_file = self.standardization_file
-                
+
         env.set_normalization(standardization_file, self.metric_names)
 
         x,y = data
@@ -362,7 +363,7 @@ class DistopiaData(Data):
                 x_ = np.concatenate([x_,x[np.random.choice(np.where(y == label)[0],self.balanced_sample_size)]])
                 y_ = np.concatenate([y_,[label for i in range(self.balanced_sample_size)]])
         return x_,y_
-        
+
 
 
 

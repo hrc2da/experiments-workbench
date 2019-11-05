@@ -94,8 +94,8 @@ class DistopiaEnvironment(Environment):
         self.evaluator.load_data()
         self.state = {}
         self.mean_array = self.std_array = None
-        self.subsample_scale = subsample_scale  # defaults to 1->no subsampling. 
-        # Usage of subsampling: if subsample scale of n, then starting from xmin and ymin, 
+        self.subsample_scale = subsample_scale  # defaults to 1->no subsampling.
+        # Usage of subsampling: if subsample scale of n, then starting from xmin and ymin,
         # block positions can only be at coordinates at n pixels intervals
         assert self.step%self.subsample_scale == 0
         assert self.step>=self.subsample_scale
@@ -127,7 +127,7 @@ class DistopiaEnvironment(Environment):
             # hopefully the above condition short-circuits
             self.set_normalization(specs_dict['standardization_file'], self.metrics)
 
-    
+
     def gencoordinates(self, m, n, j, k):
         '''Generate random coordinates in range x: (m,n) y:(j,k)
         instantiate generator and call next(g)
@@ -136,7 +136,7 @@ class DistopiaEnvironment(Environment):
         https://stackoverflow.com/questions/30890434/how-to-generate-random-pairs-of-
         numbers-in-python-including-pairs-with-one-entr
 
-        MODIFIED: To handle the case where the map is subsampled to reduce state space 
+        MODIFIED: To handle the case where the map is subsampled to reduce state space
         for the SARSA agent
         '''
         seen = self.occupied
@@ -172,44 +172,47 @@ class DistopiaEnvironment(Environment):
 
         else:
             # print("resetting to initial state....")
-            self.occupied = set()
-            self.state = {}
-            # Place one block for each district, randomly
-            for i in range(n_districts):
-                self.state[i] = [next(self.coord_generator)]
-            initial_blocks = [p[0] for p in self.state.values()]
+            while True:
+                self.occupied = set()
+                self.state = {}
+                # Place one block for each district, randomly
+                for i in range(n_districts):
+                    self.state[i] = [next(self.coord_generator)]
+                initial_blocks = [p[0] for p in self.state.values()]
 
-            # add more blocks...
-            for i in range(n_districts):
-                # generate at most max_blocks_per_district new blocks per district
-                # district_blocks = set(self.state[i])
-                district_centroid = self.state[i][0]
-                other_blocks = np.array(initial_blocks[:i] + [(float('inf'), float('inf'))] + initial_blocks[i + 1:])
-                # distances = np.sqrt(np.sum(np.square(other_blocks - district_centroid), axis=1))
-                distances = np.linalg.norm(other_blocks - district_centroid, axis=1)
-                assert len(distances) == len(other_blocks)
-                closest_pt_idx = np.argmin(distances)
-                # closest_pt = other_blocks[closest_pt_idx]
-                max_radius = distances[closest_pt_idx]/2
-                for j in range(max(0, randint(0, max_blocks_per_district-1))):
-                    dist = np.random.uniform(0, max_radius)
-                    angle = np.random.uniform(0,2*np.pi)
-                    new_block = district_centroid + np.array((dist*np.cos(angle),dist*np.sin(angle)))
-                    new_block_coords = (new_block[0], new_block[1])
-                    max_tries = 10
-                    tries = 0
-                    while new_block_coords in self.occupied and tries < max_tries:
-                        tries += 1
+                # add more blocks...
+                for i in range(n_districts):
+                    # generate at most max_blocks_per_district new blocks per district
+                    # district_blocks = set(self.state[i])
+                    district_centroid = self.state[i][0]
+                    other_blocks = np.array(initial_blocks[:i] + [(float('inf'), float('inf'))] + initial_blocks[i + 1:])
+                    # distances = np.sqrt(np.sum(np.square(other_blocks - district_centroid), axis=1))
+                    distances = np.linalg.norm(other_blocks - district_centroid, axis=1)
+                    assert len(distances) == len(other_blocks)
+                    closest_pt_idx = np.argmin(distances)
+                    # closest_pt = other_blocks[closest_pt_idx]
+                    max_radius = distances[closest_pt_idx]/2
+                    for j in range(max(0, randint(0, max_blocks_per_district-1))):
                         dist = np.random.uniform(0, max_radius)
-                        angle = np.random.uniform(0, 2 * np.pi)
-                        new_block = district_centroid + (dist * np.cos(angle), dist * np.sin(angle))
-                        new_block_coords = (int(new_block[0]), int(new_block[1]))
-                    if tries < max_tries:
-                        self.state[i].append(new_block_coords)
-                        self.occupied.add(new_block_coords)
+                        angle = np.random.uniform(0,2*np.pi)
+                        new_block = district_centroid + np.array((dist*np.cos(angle),dist*np.sin(angle)))
+                        new_block_coords = (new_block[0], new_block[1])
+                        max_tries = 10
+                        tries = 0
+                        while new_block_coords in self.occupied and tries < max_tries:
+                            tries += 1
+                            dist = np.random.uniform(0, max_radius)
+                            angle = np.random.uniform(0, 2 * np.pi)
+                            new_block = district_centroid + (dist * np.cos(angle), dist * np.sin(angle))
+                            new_block_coords = (int(new_block[0]), int(new_block[1]))
+                        if tries < max_tries:
+                            self.state[i].append(new_block_coords)
+                            self.occupied.add(new_block_coords)
+                if self.get_metrics(self.state) is not None:
+                    return self.state
             # print("initial state resetted, printing the current positions")
             # print(self.state)
-            return self.state
+
 
     def get_neighborhood(self, n_steps):
         '''Get all the configs that have one block n_steps away from the current
@@ -275,7 +278,7 @@ class DistopiaEnvironment(Environment):
 
     def get_boundaries(self):
         return [self.x_min, self.x_max, self.y_min, self.y_max]
-        
+
     def get_random_move(self, x, y):
         dist,angle = (np.random.randint(self.step_min, self.step_max),
                         np.random.uniform(2*np.pi))
@@ -391,7 +394,7 @@ class DistopiaEnvironment(Environment):
             if type(metrics) is not np.ndarray:
                 metrics = np.array(metrics)
             return (metrics - self.mean_array)/self.std_array
-    
+
     def destandardize_metrics(self, metrics):
         '''Undo's standardization
         '''

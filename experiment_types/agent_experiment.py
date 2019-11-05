@@ -13,7 +13,7 @@ def run_agent(specs,task,progress_queue):
     log_data['start_time'] = datetime.datetime.now()
     log_data['metric_names'] = specs['environment_params']['metrics']
     log_data['task'] = task
-    log_data['run_log'] = []
+    log_data['episodes'] = []
     # run the agent
     agent = specs['agent']()
     environment = specs['environment']()
@@ -24,14 +24,25 @@ def run_agent(specs,task,progress_queue):
     if 'random_seed' in specs:
         environment.seed(specs['random_seed'])
         agent.seed(specs['random_seed'])
-    design, metric, reward = agent.run(environment,specs['n_steps'],status=progress_queue)
+    design, metric, reward, episodes = agent.run(environment,status=progress_queue)
+    this_ep={}
+    ep_counter=1
+    this_ep['episode_no'] = ep_counter
+    this_ep['run_log'] = []
+
     for ind, m in enumerate(metric):
-        this_step = {}
+        this_step={}
         this_step['step_no'] = ind
         this_step['metrics'] = m
         this_step['design'] = design[ind]
         this_step['reward'] = reward[ind]
-        log_data['run_log'].append(this_step)
+        this_ep['run_log'].append(this_step)
+        if (ind+1) % specs['agent_params']['episode_length'] == 0:
+            log_data['episodes'].append(this_ep)
+            ep_counter = ep_counter+1
+            this_ep={}
+            this_ep['episode_no']=ep_counter
+            this_ep['run_log'] = []
     log_data['end_time'] = datetime.datetime.now()
     return log_data
 
@@ -56,7 +67,7 @@ class AgentExperiment(Experiment):
             tasks = specs['agent_params']['tasks']
         else:
             tasks = [specs['agent_params']['task']]
-        n_samples = len(tasks)*specs['n_steps']
+        n_samples = len(tasks)*specs['agent_params']['num_episodes']*specs['agent_params']['episode_length']
         progress_queue = Manager().Queue()
         progress_thread = Thread(target=self.progress_monitor,args=(n_samples,progress_queue))
         progress_thread.start()
