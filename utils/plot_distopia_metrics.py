@@ -6,6 +6,7 @@ sys.path.append(os.path.normpath(os.getcwd()))
 from data_types.distopia_data import DistopiaData
 from pathlib import Path
 import numpy as np
+import pickle as pkl
 from matplotlib import pyplot as plt
 from environments.distopia_environment import DistopiaEnvironment
 
@@ -95,3 +96,21 @@ def plot_metrics(data_dir):
             data = DistopiaData()
             data.set_params({'metric_names':metrics,'preprocessors':[]})
             new_user = False
+
+def plot_rewards(data_dir):
+    """For the rewards pickle file, be sure to name it with the task array"""
+    input_glob = sorted(glob(os.path.join(str(data_dir),'*pickle.txt')))
+    output_dir = os.path.join(str(data_dir),"images")
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    for f in input_glob:
+        cur_file = f.split('/')[-1]
+        with open(f, 'rb') as pklfile:
+            r_list = pkl.load(pklfile)
+            plt.clf()
+            plt.plot(r_list)
+            plt.title(cur_file)
+            if output_dir:
+                plt.savefig(os.path.join(output_dir,"{}.png".format(cur_file)))
+            else:
+                plt.show()
