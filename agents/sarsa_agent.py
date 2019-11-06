@@ -53,7 +53,6 @@ class SARSAAgent(Agent):
             row = np.where(self.possible_y==block_y)[0][0]
             col = np.where(self.possible_x==block_x)[0][0]
             state_coords.append((row, col))
-        # print("STATE CORDS ", state_coords)
         return state_coords
 
     def next_action(self, q_table, boundries, environment, eps, eps_min, eps_decay):
@@ -99,8 +98,6 @@ class SARSAAgent(Agent):
             logger = self.logger
         subsample_scale = 10
 
-        # print("INITIAL STATE ")
-        # print(environment.state)
         j = 0
         last_reward = float("-inf")
         no_valids = 0
@@ -111,9 +108,6 @@ class SARSAAgent(Agent):
         # encode actions as follows: {0: block0 up, 1: block0 down, 2: block0 left, 3: block0 right,
         # 4: block1 up ..., 31: block7 right} --> for now only block0 moves
         game_boundries=environment.get_boundaries()
-        # print("="*30)
-        # print(game_boundries)
-        # print("="*30)
         self.possible_x = np.arange(game_boundries[2], game_boundries[3]+1, subsample_scale)
         self.possible_y = np.arange(game_boundries[0], game_boundries[1]+1, subsample_scale)
 
@@ -156,7 +150,7 @@ class SARSAAgent(Agent):
                 state_row, state_col = curr_state_coords[best_action[0]] #best_action[0] = block, best_action[1] = move
                 next_row, next_col = next_state_coords[next_action[0]]
 
-                q_table[best_action[0], best_action[1], state_row, state_col] = \
+                q_table[best_action[0], best_action[1], state_row, state_col] += \
                     self.learning_coeff * \
                     (reward + self.discount_coeff*q_table[next_action[0], next_action[1], next_row, next_col] - q_table[best_action[0], best_action[1], state_row, state_col])
 

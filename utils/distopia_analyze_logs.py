@@ -8,3 +8,4 @@ if (len(sys.argv) != 3):
 
 distopia_human_logs_processor.logs_processor(sys.argv[1], sys.argv[2])
 plot_distopia_metrics.plot_metrics(sys.argv[1])
+plot_distopia_metrics.plot_rewards(sys.argv[1])

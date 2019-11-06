@@ -269,7 +269,6 @@ class DistopiaEnvironment(Environment):
         x, y = self.state[block_to_move][0] # here assuming each district only holds one block
         mx, my = (x, y) + move
         if constraints[direction](mx, my) and (mx, my) not in self.occupied:
-            # TODO: Right now if invalid move, simply ignoring
             new_state = deepcopy(self.state)
             new_state[block_to_move][0] = (mx, my)
             return new_state

@@ -27,7 +27,8 @@ class DistopiaData(Data):
         # else:
         #     self.n_workers = 1
 
-    def load_agent_data(self, fname,fmt=None, labels_path=None, append=False, load_designs=False, load_metrics=False, norm_file=None):
+    def load_agent_data(self, fname,fmt=None, labels_path=None, append=False, load_designs=False, load_metrics=False,
+        load_rewards=False, norm_file=None):
         """Loads the log file from running agent
             Assumes that the log file contains data from multiple tasks"""
         env = DistopiaEnvironment()  # TODO: This is a temp fix to standardize human metrics
@@ -36,9 +37,9 @@ class DistopiaData(Data):
         cur_task = None
         cur_trajectory = []
         trajectories = []
+        rewards = []
         task_counter = 0
         for log in logs:
-            #trajectories.append((cur_trajectory[:], cur_task))
             cur_task = log["task"]
             print(cur_task)
             cur_trajectory = []
@@ -51,11 +52,14 @@ class DistopiaData(Data):
                         step_tuple.append(step_districts)
                     if load_metrics:
                         assert hasattr(self, "metric_names")
-    #                    metrics_str = step['metrics'].replace(" ", ",")
                         step_metrics = env.standardize_metrics(self.task_str2arr(step['metrics']))
-    #                    step_metrics = self.task_str2arr(step['metrics'])
                         step_tuple.append(step_metrics)
+                    if load_rewards:
+                        rewards.append(step['reward'])
                     cur_trajectory.append(step_tuple)
+            if load_rewards:
+                self.rewards = rewards
+                self.save_rewards(str(cur_task))
             trajectories.append((cur_trajectory[:], cur_task))
         if append == False or not hasattr(self, 'x') or not hasattr(self, 'y'):
             self.y = []
@@ -146,7 +150,6 @@ class DistopiaData(Data):
                         #                                         log['districts']['districts'],from_json=True))
                         step_metrics = DistopiaEnvironment.extract_metrics(self.metric_names,log['districts']['metrics'],
                                                                 log['districts']['districts'],from_json=True)
-#                        step_metrics = DistopiaEnvironment.extract_metrics(self.metric_names,log['districts']['metrics'],log['districts']['districts'],from_json=True)
                         step_tuple.append(step_metrics)
                     cur_trajectory.append(step_tuple)
             trajectories.append((cur_trajectory[:],cur_task))
@@ -206,6 +209,12 @@ class DistopiaData(Data):
                 for i,sample in enumerate(self.x):
                     samplewriter.writerow(sample.flatten())
                     labelwriter.writerow(self.y[i])
+    
+    def save_rewards(self, rfname):
+        with open(rfname+'_pickle.txt', 'wb') as rewardsfile:
+            print(rewardsfile)
+            pkl.dump(self.rewards, rewardsfile)
+
     def save_npy(self,xfname,yfname):
         np.save(xfname, self.x)
         np.save(yfname, self.y)
