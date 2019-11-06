@@ -39,6 +39,8 @@ class SARSAAgent(Agent):
         self.n_steps = self.num_episodes * self.episode_length
         print(self.num_episodes)
         print(self.episode_length)
+        print(self.learning_coeff)
+        print(self.discount_coeff)
     def set_task(self, task):
         assert len(task) == self.num_metrics
         self.reward_weights = task
@@ -75,21 +77,18 @@ class SARSAAgent(Agent):
             else:
                 best_action = np.unravel_index(np.argmax(actions_array), actions_array.shape)
             proposed_design = environment.make_move(best_action[0], best_action[1])
-            if proposed_design == -1:
+
+            if proposed_design == -1 or environment.get_metrics(proposed_design) is None:
                 print("ACTION OUT OF BOUNDS...TRYING AGAIN")
-                actions_array[best_action[0],best_action[1]] = -100000 #Guarantees it won't be picked again
-            elif environment.get_metrics(proposed_design) is None:
-                old_eps = eps
-                eps = 1
+                actions_array[best_action[0],best_action[1]] = -100000000 #Guarantees it won't be picked again
             else:
                 done=True
-        if eps == 1:
-            eps = old_eps
         if eps > eps_min:
             eps *= eps_decay
         if eps < eps_min:
             eps = eps_min
-        return best_action
+        print(best_action)
+        return best_action, eps
 
     def run(self, environment, logger=None, exc_logger=None, status=None, initial=None, eps=0.8, eps_decay=0.9,
             eps_min=0.1, n_tries_per_step = 10):
@@ -136,7 +135,7 @@ class SARSAAgent(Agent):
             print("EPISODE NUM: " + str(j+1))
             environment.reset(initial, max_blocks_per_district = 1)
             j +=1
-            best_action = self.next_action(q_table, game_boundries, environment, eps, eps_min, eps_decay)
+            best_action, eps = self.next_action(q_table, game_boundries, environment, eps, eps_min, eps_decay)
             i=0
             while i < self.episode_length:
                 # Logic for the sarsa agent:
@@ -149,14 +148,14 @@ class SARSAAgent(Agent):
                 reward = environment.get_reward(metric, self.reward_weights)
                 # go back to the q table to update the reward of taking this step
                 environment.take_step(stepped_design)
-                next_action = self.next_action(q_table, game_boundries, environment, eps, eps_min, eps_decay)
+                next_action, eps  = self.next_action(q_table, game_boundries, environment, eps, eps_min, eps_decay)
                 curr_state_coords = self.get_state_coords(q_table, game_boundries, old_state)
                 next_state_coords = self.get_state_coords(q_table, game_boundries, stepped_design)
 
                 state_row, state_col = curr_state_coords[best_action[0]] #best_action[0] = block, best_action[1] = move
                 next_row, next_col = next_state_coords[next_action[0]]
 
-                q_table[best_action[0], best_action[1], state_row, state_col] = \
+                q_table[best_action[0], best_action[1], state_row, state_col] += \
                     self.learning_coeff * \
                     (reward + self.discount_coeff*q_table[next_action[0], next_action[1], next_row, next_col] - q_table[best_action[0], best_action[1], state_row, state_col])
 
