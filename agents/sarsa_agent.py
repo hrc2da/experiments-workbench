@@ -74,12 +74,14 @@ class SARSAAgent(Agent):
             if np.random.rand() < eps:
                 best_action = (np.random.randint(0, num_blocks), np.random.randint(0, num_actions))
             else:
-                best_action = np.unravel_index(np.argmax(actions_array), actions_array.shape)
+                all_max = np.argwhere(actions_array == np.amax(actions_array))
+                best_ind = np.random.randint(0, np.size(all_max,0))
+#                best_action = np.unravel_index(np.argmax(actions_array), actions_array.shape)
+                best_action= all_max[best_ind]
             proposed_design = environment.make_move(best_action[0], best_action[1])
-
             if proposed_design == -1 or environment.get_metrics(proposed_design) is None:
                 print("ACTION OUT OF BOUNDS...TRYING AGAIN")
-                actions_array[best_action[0],best_action[1]] = -100000000 #Guarantees it won't be picked again
+                actions_array[best_action[0],best_action[1]] = np.NINF #Guarantees it won't be picked again
             else:
                 done=True
         if eps > eps_min:
@@ -95,7 +97,7 @@ class SARSAAgent(Agent):
         '''
         if logger is None and hasattr(self,'logger') and self.logger is not None:
             logger = self.logger
-        subsample_scale = 10
+        subsample_scale = 50
 
         j = 0
         last_reward = float("-inf")
@@ -115,7 +117,8 @@ class SARSAAgent(Agent):
         subsampled_x = len(self.possible_x)
         subsampled_y = len(self.possible_y)
 
-        q_table = np.random.rand(8, 4, subsampled_x, subsampled_y)
+#        q_table = np.random.rand(8, 4, subsampled_x, subsampled_y)
+        q_table = np.full((8,4,subsampled_x, subsampled_y), 1000000000000000000)
         print('Q TABLE SIZE: ', q_table.shape)
         if logger is None:
             metric_log = []
@@ -135,7 +138,6 @@ class SARSAAgent(Agent):
                 # Logic for the sarsa agent:
                 # at each step, get all the neighbors and compute the rewards and metrics, put into q table
                 i += 1
-
                 old_state = environment.state
                 stepped_design = environment.make_move(best_action[0], best_action[1])
                 metric = environment.get_metrics(stepped_design)
@@ -146,13 +148,13 @@ class SARSAAgent(Agent):
                 curr_state_coords = self.get_state_coords(q_table, game_boundries, old_state)
                 next_state_coords = self.get_state_coords(q_table, game_boundries, stepped_design)
 
+
                 state_row, state_col = curr_state_coords[best_action[0]] #best_action[0] = block, best_action[1] = move
                 next_row, next_col = next_state_coords[next_action[0]]
 
                 q_table[best_action[0], best_action[1], state_row, state_col] += \
                     self.learning_coeff * \
                     (reward + self.discount_coeff*q_table[next_action[0], next_action[1], next_row, next_col] - q_table[best_action[0], best_action[1], state_row, state_col])
-
                 environment.occupied = set(itertools.chain(*environment.state.values()))
                 best_action = next_action
                 if status is not None:

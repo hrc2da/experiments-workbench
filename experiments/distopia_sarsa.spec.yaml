@@ -2,8 +2,8 @@ agent: agents.sarsa_agent.SARSAAgent
 agent_params:
   num_metrics: 3
   task: [-1,0,0]
-  num_episodes: 10
-  episode_length: 100
+  num_episodes: 1
+  episode_length: 10000
   learning_coeffecient: 0.2
   discount_coeffecient: 0.9
   reset: True

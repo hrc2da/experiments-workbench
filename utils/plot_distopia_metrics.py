@@ -22,7 +22,7 @@ def plot_trajectory(trajectory, title="", prefix="", names=[],outdir=None):
     for i,v in enumerate(vars):
         plt.plot(v,label=labels[i])
     plt.title(title)
-#    plt.xlim(9900,10000)
+#    plt.xlim(0,100)
     plt.legend()
     if outdir:
         modified_title = prefix + "_" + title

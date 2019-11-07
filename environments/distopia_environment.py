@@ -78,8 +78,8 @@ class DistopiaEnvironment(Environment):
         'area': lambda s, d: s['scalar_maximum']
     }
     def __init__(self, x_lim=(100, 900), y_lim=(100, 900),
-                 step_size=10, step_min=50, step_max=100,
-                 pop_mean=None, pop_std=None, subsample_scale=10):
+                 step_size=50, step_min=10, step_max=100,
+                 pop_mean=None, pop_std=None, subsample_scale=50):
         print('initializing DistopiaEnvironment')
         self.x_min, self.x_max = x_lim
         self.y_min, self.y_max = y_lim
@@ -165,6 +165,8 @@ class DistopiaEnvironment(Environment):
     def reset(self, initial=None, n_districts=8, max_blocks_per_district=5):
         '''Initialize the state randomly.
         '''
+        #Generator must be reset bc environment is reset at every episode
+        self.coord_generator = self.gencoordinates(self.x_min, self.x_max, self.y_min, self.y_max)
         if initial is not None:
             self.state = initial
             self.occupied = set(itertools.chain(*self.state.values()))
@@ -181,33 +183,33 @@ class DistopiaEnvironment(Environment):
                 initial_blocks = [p[0] for p in self.state.values()]
 
                 # add more blocks...
-                for i in range(n_districts):
-                    # generate at most max_blocks_per_district new blocks per district
-                    # district_blocks = set(self.state[i])
-                    district_centroid = self.state[i][0]
-                    other_blocks = np.array(initial_blocks[:i] + [(float('inf'), float('inf'))] + initial_blocks[i + 1:])
-                    # distances = np.sqrt(np.sum(np.square(other_blocks - district_centroid), axis=1))
-                    distances = np.linalg.norm(other_blocks - district_centroid, axis=1)
-                    assert len(distances) == len(other_blocks)
-                    closest_pt_idx = np.argmin(distances)
-                    # closest_pt = other_blocks[closest_pt_idx]
-                    max_radius = distances[closest_pt_idx]/2
-                    for j in range(max(0, randint(0, max_blocks_per_district-1))):
-                        dist = np.random.uniform(0, max_radius)
-                        angle = np.random.uniform(0,2*np.pi)
-                        new_block = district_centroid + np.array((dist*np.cos(angle),dist*np.sin(angle)))
-                        new_block_coords = (new_block[0], new_block[1])
-                        max_tries = 10
-                        tries = 0
-                        while new_block_coords in self.occupied and tries < max_tries:
-                            tries += 1
-                            dist = np.random.uniform(0, max_radius)
-                            angle = np.random.uniform(0, 2 * np.pi)
-                            new_block = district_centroid + (dist * np.cos(angle), dist * np.sin(angle))
-                            new_block_coords = (int(new_block[0]), int(new_block[1]))
-                        if tries < max_tries:
-                            self.state[i].append(new_block_coords)
-                            self.occupied.add(new_block_coords)
+                # for i in range(n_districts):
+                #     # generate at most max_blocks_per_district new blocks per district
+                #     # district_blocks = set(self.state[i])
+                #     district_centroid = self.state[i][0]
+                #     other_blocks = np.array(initial_blocks[:i] + [(float('inf'), float('inf'))] + initial_blocks[i + 1:])
+                #     # distances = np.sqrt(np.sum(np.square(other_blocks - district_centroid), axis=1))
+                #     distances = np.linalg.norm(other_blocks - district_centroid, axis=1)
+                #     assert len(distances) == len(other_blocks)
+                #     closest_pt_idx = np.argmin(distances)
+                #     # closest_pt = other_blocks[closest_pt_idx]
+                #     max_radius = distances[closest_pt_idx]/2
+                #     for j in range(max(0, randint(0, max_blocks_per_district-1))):
+                #         dist = np.random.uniform(0, max_radius)
+                #         angle = np.random.uniform(0,2*np.pi)
+                #         new_block = district_centroid + np.array((dist*np.cos(angle),dist*np.sin(angle)))
+                #         new_block_coords = (new_block[0], new_block[1])
+                #         max_tries = 10
+                #         tries = 0
+                #         while new_block_coords in self.occupied and tries < max_tries:
+                #             tries += 1
+                #             dist = np.random.uniform(0, max_radius)
+                #             angle = np.random.uniform(0, 2 * np.pi)
+                #             new_block = district_centroid + (dist * np.cos(angle), dist * np.sin(angle))
+                #             new_block_coords = (int(new_block[0]), int(new_block[1]))
+                #         if tries < max_tries:
+                #             self.state[i].append(new_block_coords)
+                #             self.occupied.add(new_block_coords)
                 if self.get_metrics(self.state) is not None:
                     return self.state
             # print("initial state resetted, printing the current positions")
