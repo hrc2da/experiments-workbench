@@ -1,9 +1,9 @@
 agent: agents.sarsa_agent.SARSAAgent
 agent_params:
   num_metrics: 3
-  task: [-1,0,0]
-  num_episodes: 1
-  episode_length: 10000
+  tasks: [[-1,-1,1],[-1,,-1,0],[-1,0,-1],[-1,0,0],[0,-1,1],[0,-1,0],[0,0,-1]]
+  num_episodes: 100
+  episode_length: 1000
   learning_coeffecient: 0.2
   discount_coeffecient: 0.9
   reset: True
@@ -14,3 +14,4 @@ environment_params:
   standardization_file: resources/stripped_normalization.pkl
 experiment_description: SARSA agent, Distopia Environment
 experiment_type: experiment_types.agent_experiment.AgentExperiment
+n_workers: 7

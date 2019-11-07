@@ -22,11 +22,11 @@ def plot_trajectory(trajectory, title="", prefix="", names=[],outdir=None):
     for i,v in enumerate(vars):
         plt.plot(v,label=labels[i])
     plt.title(title)
-#    plt.xlim(0,100)
+    plt.xlim(13000,14000)
     plt.legend()
     if outdir:
         modified_title = prefix + "_" + title
-        plt.savefig(os.path.join(outdir,"{}.png".format(modified_title)))
+        plt.savefig(os.path.join(outdir,"{}.png".format(modified_title+"_ep13")))
     else:
         plt.show()
 # def trajectories2task_dict(x,y):
@@ -107,8 +107,13 @@ def plot_rewards(data_dir):
         cur_file = f.split('/')[-1]
         with open(f, 'rb') as pklfile:
             r_list = pkl.load(pklfile)
+            r_avg = []
+            cutter = 0
+            while cutter <= 99000:
+                r_avg.append(sum(r_list[cutter:cutter+1000])/1000)
+                cutter=cutter+1000
             plt.clf()
-            plt.plot(r_list)
+            plt.plot(r_avg)
             plt.title(cur_file)
             if output_dir:
                 plt.savefig(os.path.join(output_dir,"{}.png".format(cur_file)))

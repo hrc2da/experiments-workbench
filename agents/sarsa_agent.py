@@ -88,7 +88,6 @@ class SARSAAgent(Agent):
             eps *= eps_decay
         if eps < eps_min:
             eps = eps_min
-        print(best_action)
         return best_action, eps
 
     def run(self, environment, logger=None, exc_logger=None, status=None, initial=None, eps=0.8, eps_decay=0.9,
@@ -118,7 +117,7 @@ class SARSAAgent(Agent):
         subsampled_y = len(self.possible_y)
 
 #        q_table = np.random.rand(8, 4, subsampled_x, subsampled_y)
-        q_table = np.full((8,4,subsampled_x, subsampled_y), 1000000000000000000)
+        q_table = np.full((8,4,subsampled_x, subsampled_y), 5.0)
         print('Q TABLE SIZE: ', q_table.shape)
         if logger is None:
             metric_log = []
@@ -139,22 +138,25 @@ class SARSAAgent(Agent):
                 # at each step, get all the neighbors and compute the rewards and metrics, put into q table
                 i += 1
                 old_state = environment.state
+                print(best_action)
                 stepped_design = environment.make_move(best_action[0], best_action[1])
                 metric = environment.get_metrics(stepped_design)
                 reward = environment.get_reward(metric, self.reward_weights)
+                print("REWARD: " + str(reward))
                 # go back to the q table to update the reward of taking this step
                 environment.take_step(stepped_design)
                 next_action, eps  = self.next_action(q_table, game_boundries, environment, eps, eps_min, eps_decay)
                 curr_state_coords = self.get_state_coords(q_table, game_boundries, old_state)
                 next_state_coords = self.get_state_coords(q_table, game_boundries, stepped_design)
 
-
                 state_row, state_col = curr_state_coords[best_action[0]] #best_action[0] = block, best_action[1] = move
                 next_row, next_col = next_state_coords[next_action[0]]
-
+                print("OLD Q:  " + str(q_table[best_action[0], best_action[1], state_row, state_col]))
                 q_table[best_action[0], best_action[1], state_row, state_col] += \
                     self.learning_coeff * \
                     (reward + self.discount_coeff*q_table[next_action[0], next_action[1], next_row, next_col] - q_table[best_action[0], best_action[1], state_row, state_col])
+                print("NEW Q: " + str(q_table[best_action[0], best_action[1], state_row, state_col]))
+
                 environment.occupied = set(itertools.chain(*environment.state.values()))
                 best_action = next_action
                 if status is not None:
