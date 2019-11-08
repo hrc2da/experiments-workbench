@@ -1,7 +1,7 @@
 agent: agents.sarsa_agent.SARSAAgent
 agent_params:
   num_metrics: 3
-  tasks: [[-1,-1,1],[-1,,-1,0],[-1,0,-1],[-1,0,0],[0,-1,1],[0,-1,0],[0,0,-1]]
+  tasks: [[-1,-1,1],[-1,-1,0],[-1,0,-1],[-1,0,0],[0,-1,1],[0,-1,0],[0,0,-1]]
   num_episodes: 100
   episode_length: 1000
   learning_coeffecient: 0.2

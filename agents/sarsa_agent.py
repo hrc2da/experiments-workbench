@@ -80,7 +80,7 @@ class SARSAAgent(Agent):
                 best_action= all_max[best_ind]
             proposed_design = environment.make_move(best_action[0], best_action[1])
             if proposed_design == -1 or environment.get_metrics(proposed_design) is None:
-                print("ACTION OUT OF BOUNDS...TRYING AGAIN")
+#                print("ACTION OUT OF BOUNDS...TRYING AGAIN")
                 actions_array[best_action[0],best_action[1]] = np.NINF #Guarantees it won't be picked again
             else:
                 done=True
@@ -128,7 +128,6 @@ class SARSAAgent(Agent):
             rappend = reward_log.append
 
         while j < self.num_episodes:
-            print("EPISODE NUM: " + str(j+1))
             environment.reset(initial, max_blocks_per_district = 1)
             j +=1
             best_action, eps = self.next_action(q_table, game_boundries, environment, eps, eps_min, eps_decay)
@@ -138,11 +137,11 @@ class SARSAAgent(Agent):
                 # at each step, get all the neighbors and compute the rewards and metrics, put into q table
                 i += 1
                 old_state = environment.state
-                print(best_action)
+#                print(best_action)
                 stepped_design = environment.make_move(best_action[0], best_action[1])
                 metric = environment.get_metrics(stepped_design)
                 reward = environment.get_reward(metric, self.reward_weights)
-                print("REWARD: " + str(reward))
+
                 # go back to the q table to update the reward of taking this step
                 environment.take_step(stepped_design)
                 next_action, eps  = self.next_action(q_table, game_boundries, environment, eps, eps_min, eps_decay)
@@ -151,11 +150,11 @@ class SARSAAgent(Agent):
 
                 state_row, state_col = curr_state_coords[best_action[0]] #best_action[0] = block, best_action[1] = move
                 next_row, next_col = next_state_coords[next_action[0]]
-                print("OLD Q:  " + str(q_table[best_action[0], best_action[1], state_row, state_col]))
+#                print("OLD Q:  " + str(q_table[best_action[0], best_action[1], state_row, state_col]))
                 q_table[best_action[0], best_action[1], state_row, state_col] += \
                     self.learning_coeff * \
                     (reward + self.discount_coeff*q_table[next_action[0], next_action[1], next_row, next_col] - q_table[best_action[0], best_action[1], state_row, state_col])
-                print("NEW Q: " + str(q_table[best_action[0], best_action[1], state_row, state_col]))
+#                print("NEW Q: " + str(q_table[best_action[0], best_action[1], state_row, state_col]))
 
                 environment.occupied = set(itertools.chain(*environment.state.values()))
                 best_action = next_action
