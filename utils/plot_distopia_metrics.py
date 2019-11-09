@@ -22,11 +22,11 @@ def plot_trajectory(trajectory, title="", prefix="", names=[],outdir=None):
     for i,v in enumerate(vars):
         plt.plot(v,label=labels[i])
     plt.title(title)
-    plt.xlim(13000,14000)
+#    plt.xlim(13000,14000)
     plt.legend()
     if outdir:
         modified_title = prefix + "_" + title
-        plt.savefig(os.path.join(outdir,"{}.png".format(modified_title+"_ep13")))
+        plt.savefig(os.path.join(outdir,"{}.png".format(modified_title)))
     else:
         plt.show()
 # def trajectories2task_dict(x,y):

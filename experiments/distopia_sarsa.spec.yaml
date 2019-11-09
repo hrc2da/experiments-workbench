@@ -6,12 +6,14 @@ agent_params:
   episode_length: 1000
   learning_coeffecient: 0.2
   discount_coeffecient: 0.9
+  subsample_scale: 50
   reset: True
 environment: environments.distopia_environment.DistopiaEnvironment
 environment_params:
   env_name: distopia
   metrics: [population, pvi, compactness]
   standardization_file: resources/stripped_normalization.pkl
+  subsample_scale: 50
 experiment_description: SARSA agent, Distopia Environment
 experiment_type: experiment_types.agent_experiment.AgentExperiment
 n_workers: 7

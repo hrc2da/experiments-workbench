@@ -78,12 +78,12 @@ class DistopiaEnvironment(Environment):
         'area': lambda s, d: s['scalar_maximum']
     }
     def __init__(self, x_lim=(100, 900), y_lim=(100, 900),
-                 step_size=50, step_min=10, step_max=100,
-                 pop_mean=None, pop_std=None, subsample_scale=50):
+                  step_min=10, step_max=100,
+                 pop_mean=None, pop_std=None):
         print('initializing DistopiaEnvironment')
         self.x_min, self.x_max = x_lim
         self.y_min, self.y_max = y_lim
-        self.step = step_size
+        self.step = 1
         self.step_min = step_min
         self.step_max = step_max
         self.pop_mean = pop_mean
@@ -94,7 +94,7 @@ class DistopiaEnvironment(Environment):
         self.evaluator.load_data()
         self.state = {}
         self.mean_array = self.std_array = None
-        self.subsample_scale = subsample_scale  # defaults to 1->no subsampling.
+        self.subsample_scale = 1  # defaults to 1->no subsampling.
         # Usage of subsampling: if subsample scale of n, then starting from xmin and ymin,
         # block positions can only be at coordinates at n pixels intervals
         assert self.step%self.subsample_scale == 0
@@ -126,6 +126,12 @@ class DistopiaEnvironment(Environment):
         if 'standardization_file' in specs_dict and specs_dict['standardization_file'] is not None:
             # hopefully the above condition short-circuits
             self.set_normalization(specs_dict['standardization_file'], self.metrics)
+        if 'subsample_scale' in specs_dict:
+            self.subsample_scale = specs_dict['subsample_scale']
+            self.step = self.subsample_scale
+            assert self.step%self.subsample_scale == 0
+            assert self.step>=self.subsample_scale
+            print("subsample scale environment: " + str(self.subsample_scale))
 
 
     def gencoordinates(self, m, n, j, k):

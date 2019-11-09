@@ -27,6 +27,7 @@ class SARSAAgent(Agent):
         self.discount_coeff = 0.9
         self.num_episodes = 1
         self.episode_length = 100
+        self.subsample_scale = 1
         if 'num_episodes' in specs_dict:
             self.num_episodes = specs_dict['num_episodes']
         if 'episode_length' in specs_dict:
@@ -35,12 +36,15 @@ class SARSAAgent(Agent):
             self.learning_coeff = specs_dict['learning_coeffecient']
         if 'discount_coeffecient' in specs_dict:
             self.discount_coeff = specs_dict['discount_coeffecient']
+        if 'subsample_scale' in specs_dict:
+            self.subsample_scale = specs_dict['subsample_scale']
 
         self.n_steps = self.num_episodes * self.episode_length
-        print(self.num_episodes)
-        print(self.episode_length)
-        print(self.learning_coeff)
-        print(self.discount_coeff)
+        print("num episodes: " + str(self.num_episodes))
+        print("episode length: " + str(self.episode_length))
+        print("learning_coeff: "  + str(self.learning_coeff))
+        print("discount_coeff: " + str(self.discount_coeff))
+        print("subsample scale agent: " + str(self.subsample_scale))
     def set_task(self, task):
         assert len(task) == self.num_metrics
         self.reward_weights = task
@@ -96,7 +100,7 @@ class SARSAAgent(Agent):
         '''
         if logger is None and hasattr(self,'logger') and self.logger is not None:
             logger = self.logger
-        subsample_scale = 50
+        subsample_scale = self.subsample_scale
 
         j = 0
         last_reward = float("-inf")
