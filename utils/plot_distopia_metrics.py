@@ -107,13 +107,13 @@ def plot_rewards(data_dir):
         cur_file = f.split('/')[-1]
         with open(f, 'rb') as pklfile:
             r_list = pkl.load(pklfile)
-            r_avg = []
-            cutter = 0
-            while cutter <= 99000:
-                r_avg.append(sum(r_list[cutter:cutter+1000])/1000)
-                cutter=cutter+1000
+            # r_avg = []
+            # cutter = 0
+            # while cutter <= 99000:
+            #     r_avg.append(sum(r_list[cutter:cutter+1000])/1000)
+                # cutter=cutter+1000
             plt.clf()
-            plt.plot(r_avg)
+            plt.plot(r_list)
             plt.title(cur_file)
             if output_dir:
                 plt.savefig(os.path.join(output_dir,"{}.png".format(cur_file)))

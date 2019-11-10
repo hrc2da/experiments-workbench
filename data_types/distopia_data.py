@@ -28,38 +28,43 @@ class DistopiaData(Data):
         #     self.n_workers = 1
 
     def load_agent_data(self, fname,fmt=None, labels_path=None, append=False, load_designs=False, load_metrics=False,
-        load_rewards=False, norm_file=None):
+        load_rewards=False, norm_file=None, data_dir=None):
         """Loads the log file from running agent
             Assumes that the log file contains data from multiple tasks"""
         env = DistopiaEnvironment()  # TODO: This is a temp fix to standardize human metrics
         env.set_normalization(norm_file, self.metric_names)
         logs = self.load_json(fname)
         cur_task = None
+        task_counter = 0
         cur_trajectory = []
         trajectories = []
-        rewards = []
-        task_counter = 0
-        cur_task = logs["task"]
-        print(cur_task)
-        cur_trajectory = []
-        task_counter += 1
-        for episode in logs['episodes']:
-            for step in episode['run_log']:
-                step_tuple = []
-                if load_designs:
-                    step_districts = self.jsondistricts2mat(step['design'])
-                    step_tuple.append(step_districts)
-                if load_metrics:
-                    assert hasattr(self, "metric_names")
-                    step_metrics = env.standardize_metrics(self.task_str2arr(step['metrics']))
-                    step_tuple.append(step_metrics)
-                if load_rewards:
-                    rewards.append(step['reward'])
-                cur_trajectory.append(step_tuple)
-        if load_rewards:
-            self.rewards = rewards
-            self.save_rewards(str(cur_task))
-        trajectories.append((cur_trajectory[:], cur_task))
+        
+        for log in logs:
+            rewards = []
+            cur_task = log["task"]
+            print(cur_task)
+            cur_trajectory = []
+            task_counter += 1
+            for episode in log['episodes']:
+                for step in episode['run_log']:
+                    step_tuple = []
+                    if load_designs:
+                        step_districts = self.jsondistricts2mat(step['design'])
+                        step_tuple.append(step_districts)
+                    if load_metrics:
+                        assert hasattr(self, "metric_names")
+                        step_metrics = env.standardize_metrics(self.task_str2arr(step['metrics']))
+                        step_tuple.append(step_metrics)
+                    if load_rewards:
+                        rewards.append(step['reward'])
+                    cur_trajectory.append(step_tuple)
+            if load_rewards:
+                self.rewards = rewards
+                if data_dir:
+                    self.save_rewards(data_dir, cur_task)
+                else:
+                    self.save_rewards('', cur_task)
+            trajectories.append((cur_trajectory[:], cur_task))
         if append == False or not hasattr(self, 'x') or not hasattr(self, 'y'):
             self.y = []
             self.x = []
@@ -209,8 +214,8 @@ class DistopiaData(Data):
                     samplewriter.writerow(sample.flatten())
                     labelwriter.writerow(self.y[i])
 
-    def save_rewards(self, rfname):
-        with open(rfname+'_pickle.txt', 'wb') as rewardsfile:
+    def save_rewards(self, data_dir, task):
+        with open(str(data_dir)+str(task)+'_pickle.txt', 'wb') as rewardsfile:
             print(rewardsfile)
             pkl.dump(self.rewards, rewardsfile)
 

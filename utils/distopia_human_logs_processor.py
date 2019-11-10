@@ -68,9 +68,9 @@ def logs_processor(data_dir, norm_dir):
             data.load_data(logfile,append=True,load_designs=False,load_metrics=True, norm_file = norm_dir)
         else:
             data.load_agent_data(logfile,append=True,load_designs=False,
-            load_metrics=True, load_rewards=True, norm_file = norm_dir)
-            rfname = os.path.join(data_dir,"{}".format(filename))
-            data.save_rewards(rfname)
+            load_metrics=True, load_rewards=True, norm_file = norm_dir, data_dir=data_dir)
+            # rfname = os.path.join(data_dir,"{}".format(filename))
+            # data.save_rewards(rfname)
         if new_user == True:
             fname = os.path.join(data_dir,"{}_logs".format(filename))
             print(fname)
