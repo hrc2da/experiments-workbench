@@ -38,32 +38,32 @@ class DistopiaData(Data):
         task_counter = 0
         cur_trajectory = []
         trajectories = []
-        
-        for log in logs:
-            rewards = []
-            cur_task = log["task"]
-            print(cur_task)
-            cur_trajectory = []
-            task_counter += 1
-            for episode in log['episodes']:
-                for step in episode['run_log']:
-                    step_tuple = []
-                    if load_designs:
-                        step_districts = self.jsondistricts2mat(step['design'])
-                        step_tuple.append(step_districts)
-                    if load_metrics:
-                        assert hasattr(self, "metric_names")
-                        step_metrics = env.standardize_metrics(self.task_str2arr(step['metrics']))
-                        step_tuple.append(step_metrics)
-                    if load_rewards:
-                        rewards.append(step['reward'])
-                    cur_trajectory.append(step_tuple)
-            if load_rewards:
-                self.rewards = rewards
-                if data_dir:
-                    self.save_rewards(data_dir, cur_task)
-                else:
-                    self.save_rewards('', cur_task)
+
+#        for log in logs:
+        rewards = []
+        cur_task = logs["task"]
+        print(cur_task)
+        cur_trajectory = []
+        task_counter += 1
+        for episode in logs['episodes']:
+            for step in episode['run_log']:
+                step_tuple = []
+                if load_designs:
+                    step_districts = self.jsondistricts2mat(step['design'])
+                    step_tuple.append(step_districts)
+                if load_metrics:
+                    assert hasattr(self, "metric_names")
+                    step_metrics = env.standardize_metrics(self.task_str2arr(step['metrics']))
+                    step_tuple.append(step_metrics)
+                if load_rewards:
+                    rewards.append(step['reward'])
+                cur_trajectory.append(step_tuple)
+        if load_rewards:
+            self.rewards = rewards
+            if data_dir:
+                self.save_rewards(data_dir, fname)
+            else:
+                self.save_rewards('', fname)
             trajectories.append((cur_trajectory[:], cur_task))
         if append == False or not hasattr(self, 'x') or not hasattr(self, 'y'):
             self.y = []
@@ -214,8 +214,8 @@ class DistopiaData(Data):
                     samplewriter.writerow(sample.flatten())
                     labelwriter.writerow(self.y[i])
 
-    def save_rewards(self, data_dir, task):
-        with open(str(data_dir)+str(task)+'_pickle.txt', 'wb') as rewardsfile:
+    def save_rewards(self, data_dir, fname):
+        with open(str(fname)+'_rewards_pickle.txt', 'wb') as rewardsfile:
             print(rewardsfile)
             pkl.dump(self.rewards, rewardsfile)
 
