@@ -7,6 +7,7 @@ from copy import deepcopy
 import time
 #import tqdm
 import itertools
+import pickle
 
 class SARSAAgent(Agent):
 
@@ -176,6 +177,8 @@ class SARSAAgent(Agent):
         norm_metrics = []
         # for m in metric_log:
         #     norm_metrics.append(environment.standardize_metrics(m))
+        with open("qtable.pkl", "wb") as f:
+            pickle.dump(q_table, f)
         if logger is not None:
             return "n_steps: {}, samples: {}, resets: {}, none_valids: {}, randoms: {}".format(self.n_steps, samples, resets, no_valids, randoms), self.reward_weights
         else:
