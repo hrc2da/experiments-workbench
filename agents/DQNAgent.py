@@ -30,8 +30,8 @@ class DQNAgent(Agent):
                 assert len(task) == self.num_metrics
                 self.reward_weights = task
 
-        self.discount_rate = 0.2
-        self.eps = 0.9  # TODO: change these parameters to more reasonable values
+        self.discount_rate = 0.9  # corresponds to gamma in the paper
+        self.eps = 0.9 
         self.min_eps = 0.1
         self.num_episodes = 1
         self.episode_length = 100
@@ -42,8 +42,8 @@ class DQNAgent(Agent):
             self.episode_length = specs_dict['episode_length']
         if 'discount_rate' in specs_dict:
             self.discount_rate = specs_dict['discount_rate']
-        if 'eps' in specs_dict:
-            self.eps = specs_dict['eps']
+        if 'epsilon' in specs_dict:
+            self.eps = specs_dict['epsilon']
         if 'min_eps' in specs_dict:
             self.min_eps = specs_dict['min_eps']
         if 'step_size' in specs_dict:
@@ -118,8 +118,9 @@ class DQNAgent(Agent):
 
         else: # valid move
             new_state = self.get_state(environment, new_design)
+            old_metric = environment.get_metrics(environment.state)
             new_metric = environment.get_metrics(new_design)
-            reward = environment.get_reward(new_metric, self.reward_weights)
+            reward = environment.get_reward(new_metric-old_metric, self.reward_weights)
             environment.take_step(new_design)
         
         return new_state, reward
@@ -140,6 +141,15 @@ class DQNAgent(Agent):
         """adds the experience into the dqn memory"""
         self.memory.append((state, action, reward, next_state))
 
+    def fill_memory(self, environment, steps):
+        """Run the game for defined number of steps with random actions"""
+        for i in range(steps):
+            rand_action = random.sample(self.action_space, 1)
+            orig_state = self.get_state(environment, environment.state)
+            new_state, reward = self.take_action(environment, rand_action)
+            self.remember(orig_state, rand_action, reward, new_state)
+
+
     def train(self, environment):
         
         init_design = environment.reset()
@@ -156,3 +166,9 @@ class DQNAgent(Agent):
         # After training is done, save the model
         model_name = "trained_dqn_"+str(self.num_episodes)+"_"+str(self.episode_length)
         self.save_model(model_name)
+
+    def run(self, environment):
+        # FIrst ensure that there are enough experiences in memory to sample from
+        self.fill_memory(environment, 100)
+        environment.reset()
+        self.train(environment)
