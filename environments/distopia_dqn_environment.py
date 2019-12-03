@@ -360,19 +360,14 @@ class DistopiaEnvironment(Environment):
         if not self.check_legal_districts(districts):
             return None
         return self.extract_metrics(self.metrics,state_metrics,districts)
-    
-    def get_district_metrics(self, design, exc_logger=None):
-        """returns the metrics associated with each district"""
-        try:
-            districts = self.evaluator.get_voronoi_districts(design)
-            state_metrics, _ = self.evaluator.compute_voronoi_metrics(districts)
-            return state_metrics
-        except ColliderException:
-            if exc_logger is not None:
-                exc_logger.write(str(design) + '\n')
-            else:
-                print("Collider Exception!")
-            return None
+        # metric_dict = {}
+        # for state_metric in state_metrics:
+        #     metric_name = state_metric.name
+        #     if metric_name in self.metrics:
+        #         metric_dict[metric_name] = self.metric_extractors[metric_name](state_metric, districts)
+
+        # metrics = np.array([metric_dict[metric] for metric in self.metrics])
+        # return metrics
 
     @staticmethod
     def extract_metrics(metric_names,state_metrics,districts,from_json=False):
