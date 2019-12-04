@@ -8,6 +8,7 @@ from keras.models import Sequential, model_from_yaml
 from keras.layers import Dense, Activation, Flatten
 from keras.optimizers import Adam
 import random
+from matplotlib import pyplot as plt
 
 class DQNAgent(Agent):
     def __init__(self):
@@ -182,9 +183,27 @@ class DQNAgent(Agent):
                     self.replay()  # do memory replay after every 10 steps
                 if status is not None:
                     status.put('next')
+        self.evaluate_model(environment, 200, initial)
         # After training is done, save the model
         model_name = "trained_dqn_"+str(self.num_episodes)+"_"+str(self.episode_length)
         self.save_model(model_name)
+
+    def evaluate_model(self, environment, num_steps, initial=None):
+        """Use the currently trained model to play distopia from a random
+            starting state for num_steps steps, plot the metrics"""
+        environment.reset(initial, max_blocks_per_district = 1)
+        rewards_log = []
+        curr_state = self.get_state(environment, environment.state)
+        for _ in range(num_steps):
+            predicted_q = self.model.predict(curr_state.reshape(1, 40))[0]
+            best_action = np.argmax(predicted_q)
+            new_state, reward = self.take_action(environment, best_action)
+            rewards_log.append(reward)
+            curr_state = new_state
+
+        plt.plot(rewards_log)
+        plt.show()
+
 
     def run(self, environment, status=None, initial=None):
         # FIrst ensure that there are enough experiences in memory to sample from
