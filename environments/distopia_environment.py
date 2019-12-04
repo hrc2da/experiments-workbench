@@ -366,7 +366,18 @@ class DistopiaEnvironment(Environment):
         try:
             districts = self.evaluator.get_voronoi_districts(design)
             state_metrics, _ = self.evaluator.compute_voronoi_metrics(districts)
-            return state_metrics
+            unpacked_metrics = {}
+            for i, d in enumerate(districts):
+                unpacked_metrics[i] = {}
+                unpacked_metrics[i][0] = d.metrics['population'].scalar_value
+                unpacked_metrics[i][1] = d.metrics['pvi'].scalar_value
+                unpacked_metrics[i][2] = d.metrics['compactness'].scalar_value
+            # for state_metric in state_metrics:
+            #     metric_name = state_metric.name
+            #     if metric_name in metric_names:
+            #         np.std([dm.metrics['population'].scalar_value for dm in d])
+            #         metric_dict[metric_name] = DistopiaEnvironment.metric_extractors[metric_name](state_metric, districts)
+            return unpacked_metrics
         except ColliderException:
             if exc_logger is not None:
                 exc_logger.write(str(design) + '\n')

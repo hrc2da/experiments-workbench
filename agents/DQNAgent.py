@@ -18,7 +18,8 @@ class DQNAgent(Agent):
         self.optimizer = Adam(lr=0.001)
         self.memory = [] #TODO: we can also consider making this into a fixed-length queue
         self.action_space = np.arange(0, 32)
-        self.batch_size = 32
+        self.batch_size = 16
+        self.build_model()
 
     def set_params(self, specs_dict):
         self.num_metrics = specs_dict['num_metrics']
@@ -54,30 +55,31 @@ class DQNAgent(Agent):
         print("episode length: " + str(self.episode_length))
         print("discount_rate: "  + str(self.discount_rate))
 
+    def set_task(self, task):
+        assert len(task) == self.num_metrics
+        self.reward_weights = task
+
     def get_state(self, environment, design):
         """returns the current positions of the 8 blocks and the metrics
             The output data structure is 8x4 array: 1 row for each block, 
             each row is of the form [x_pos, y_pos, pop_metric, pvi_metric, compact_metric]"""
-        ret_state = np.zeros((8, 4))
+        
+        ret_state = np.zeros((8, 5))
         district_metrics = environment.get_district_metrics(design)
-        # TODO: need to check the format of the district_metrics. We want it to hold the 3 metrics for each district 
         for i in range(8):
             block_x, block_y = design[i][0]
             ret_state[i][0] = block_x
             ret_state[i][1] = block_y
-            for j in range(3):
-                ret_state[i][j] = district_metrics[i][j]
+            for j in range(2, 5):
+                ret_state[i][j] = district_metrics[i][j-2]
         return ret_state
 
     def build_model(self):
         self.model = Sequential()
-        self.model.add(Flatten(input_shape=(1,) + 40))
-        self.model.add(Dense(64))
+        self.model.add(Dense(64, input_dim=40))
         self.model.add(Activation('relu'))
         self.model.add(Dense(64))
         self.model.add(Activation('relu'))
-        # self.model.add(Dense(16))
-        # self.model.add(Activation('relu'))
         self.model.add(Dense(self.nb_actions))
         self.model.add(Activation('linear'))
         self.model.compile(loss='mse', optimizer=self.optimizer)
@@ -97,7 +99,7 @@ class DQNAgent(Agent):
         if self.eps<self.min_eps:
             self.eps = self.min_eps
         if num < self.eps:
-            action = self.action_space.sample()
+            action = np.random.choice(self.action_space)
         else:
             action = np.argmax(self.model.predict(state.reshape(-1, self.nb_actions))[0])
         return action
@@ -109,6 +111,7 @@ class DQNAgent(Agent):
         block_num = action//4
         direction = action%4
         # try to make the move, if out of bounds, try again
+        print("TAKING ACTION! Moving block {}, in {} direction".format(block_num, direction))
         new_design = environment.make_move(block_num, direction)
         if new_design == -1 or environment.get_metrics(new_design) is None:
             print("ACTION OUT OF BOUNDS")
@@ -117,6 +120,9 @@ class DQNAgent(Agent):
             new_state = self.get_state(environment, orig_design) # actually unchanged
 
         else: # valid move
+            # print("NEW: ", new_design)
+            # print("OLD: ", environment.state)
+            assert new_design!=environment.state
             new_state = self.get_state(environment, new_design)
             old_metric = environment.get_metrics(environment.state)
             new_metric = environment.get_metrics(new_design)
@@ -129,13 +135,17 @@ class DQNAgent(Agent):
         """Gets a random batch from memory and replay"""
         batch = random.sample(self.memory, self.batch_size)
         for old_state, action, reward, next_state in batch:
-            next_state_pred = self.model.predict(next_state.reshape(-1, 40)[0])
-            old_state_pred = self.model.predict(old_state.reshape(-1, 40)[0])
+            print("*"*30)
+            print(next_state.reshape(40, 1))
+            print("*"*30)
+
+            next_state_pred = self.model.predict(next_state.reshape(40, 1))
+            old_state_pred = self.model.predict(old_state.reshape(40, 1))
             max_next_pred = np.max(next_state_pred)
             max_next_action = np.argmax(next_state_pred)
             target_q_value = reward + self.discount_rate * max_next_pred
             old_state_pred[max_next_action] = target_q_value
-            self.model.fit(old_state.reshape(-1, 40)[0], old_state_pred, epochs=1, verbose=0)
+            self.model.fit(old_state.reshape(40, 1), old_state_pred, epochs=1, verbose=0)
 
     def remember(self, state, action, reward, next_state):
         """adds the experience into the dqn memory"""
@@ -143,19 +153,24 @@ class DQNAgent(Agent):
 
     def fill_memory(self, environment, steps):
         """Run the game for defined number of steps with random actions"""
-        for i in range(steps):
-            rand_action = random.sample(self.action_space, 1)
+        for _ in range(steps):
+            rand_action = np.random.choice(self.action_space)
             orig_state = self.get_state(environment, environment.state)
             new_state, reward = self.take_action(environment, rand_action)
+            # print("*"*30)
+            # print("OLD STATE: ", orig_state)
+            # print("NEW STATE: ", new_state)
+            # print("*"*30)
             self.remember(orig_state, rand_action, reward, new_state)
 
 
-    def train(self, environment):
-        
-        init_design = environment.reset()
-        curr_state = self.get_state(environment, init_design)
+    def train(self, environment, status=None, initial=None):
+
         for i in range(self.num_episodes):
             # reset the block positions after every episode
+            environment.reset(initial, max_blocks_per_district = 1)
+            init_design = environment.state
+            curr_state = self.get_state(environment, init_design)
             for j in range(self.episode_length):
                 action = self.get_action(curr_state)
                 next_state, reward = self.take_action(environment, action)
@@ -163,12 +178,15 @@ class DQNAgent(Agent):
                 self.remember(curr_state, action, reward, next_state)
                 if j%10==0:
                     self.replay()  # do memory replay after every 10 steps
+                if status is not None:
+                    status.put('next')
         # After training is done, save the model
         model_name = "trained_dqn_"+str(self.num_episodes)+"_"+str(self.episode_length)
         self.save_model(model_name)
 
-    def run(self, environment):
+    def run(self, environment, status=None, initial=None):
         # FIrst ensure that there are enough experiences in memory to sample from
-        self.fill_memory(environment, 100)
-        environment.reset()
-        self.train(environment)
+        environment.reset(initial, max_blocks_per_district = 1)
+        self.fill_memory(environment, 20)
+        self.train(environment, status, initial)
+        
