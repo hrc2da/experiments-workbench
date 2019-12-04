@@ -101,7 +101,7 @@ class DQNAgent(Agent):
         if num < self.eps:
             action = np.random.choice(self.action_space)
         else:
-            action = np.argmax(self.model.predict(state.reshape(-1, self.nb_actions))[0])
+            action = np.argmax(self.model.predict(state.reshape(1, 40))[0])
         return action
 
     def take_action(self, environment, action):
@@ -136,16 +136,16 @@ class DQNAgent(Agent):
         batch = random.sample(self.memory, self.batch_size)
         for old_state, action, reward, next_state in batch:
             print("*"*30)
-            print(next_state.reshape(40, 1))
+            print(next_state.reshape(1, 40))
             print("*"*30)
-
-            next_state_pred = self.model.predict(next_state.reshape(40, 1))
-            old_state_pred = self.model.predict(old_state.reshape(40, 1))
+            next_state_pred = self.model.predict(next_state.reshape(1, 40))[0]
+            old_state_pred = self.model.predict(old_state.reshape(1, 40))[0]
             max_next_pred = np.max(next_state_pred)
             max_next_action = np.argmax(next_state_pred)
             target_q_value = reward + self.discount_rate * max_next_pred
             old_state_pred[max_next_action] = target_q_value
-            self.model.fit(old_state.reshape(40, 1), old_state_pred, epochs=1, verbose=0)
+            # as an optimization, try not un-shaping and re_shaping old_state_pred
+            self.model.fit(old_state.reshape(1, 40), old_state_pred.reshape(1, 32), epochs=1, verbose=0)
 
     def remember(self, state, action, reward, next_state):
         """adds the experience into the dqn memory"""
