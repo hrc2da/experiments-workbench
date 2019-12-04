@@ -33,9 +33,9 @@ class DQNAgent(Agent):
                 self.reward_weights = task
 
         self.discount_rate = 0.9  # corresponds to gamma in the paper
-        self.eps = 0.9 
+        self.eps = 0.95 
         self.min_eps = 0.1
-        self.decay_rate = 0.99
+        self.decay_rate = 0.999
         self.num_episodes = 1
         self.episode_length = 100
         self.step_size = 10 # how many pixels to move in each step
@@ -118,7 +118,7 @@ class DQNAgent(Agent):
         new_design = environment.make_move(block_num, direction)
         if new_design == -1 or environment.get_metrics(new_design) is None:
             print("ACTION OUT OF BOUNDS")
-            reward = 0
+            reward = -1
             orig_design = environment.state
             new_state = self.get_state(environment, orig_design) # actually unchanged
 
@@ -168,7 +168,10 @@ class DQNAgent(Agent):
 
 
     def train(self, environment, status=None, initial=None):
-
+        train_reward_log = []
+        train_metric_log = []
+        train_design_log = []
+        
         for i in range(self.num_episodes):
             # reset the block positions after every episode
             environment.reset(initial, max_blocks_per_district = 1)
@@ -177,6 +180,8 @@ class DQNAgent(Agent):
             for j in range(self.episode_length):
                 action = self.get_action(curr_state)
                 next_state, reward = self.take_action(environment, action)
+                train_reward_log.append(reward)
+                train_design_log.append(environment.state)
                 # add this experience to memory
                 self.remember(curr_state, action, reward, next_state)
                 if j%10==0:
@@ -187,6 +192,7 @@ class DQNAgent(Agent):
         # After training is done, save the model
         model_name = "trained_dqn_"+str(self.num_episodes)+"_"+str(self.episode_length)
         self.save_model(model_name)
+        return train_design_log, train_metric_log, train_reward_log
 
     def evaluate_model(self, environment, num_steps, initial=None):
         """Use the currently trained model to play distopia from a random
@@ -209,5 +215,5 @@ class DQNAgent(Agent):
         # FIrst ensure that there are enough experiences in memory to sample from
         environment.reset(initial, max_blocks_per_district = 1)
         self.fill_memory(environment, 20)
-        self.train(environment, status, initial)
-        
+        train_design_log, train_metric_log, train_reward_log = self.train(environment, status, initial)
+        return train_design_log, train_metric_log, train_reward_log, self.num_episodes
