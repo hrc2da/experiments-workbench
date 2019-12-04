@@ -34,6 +34,7 @@ class DQNAgent(Agent):
         self.discount_rate = 0.9  # corresponds to gamma in the paper
         self.eps = 0.9 
         self.min_eps = 0.1
+        self.decay_rate = 0.99
         self.num_episodes = 1
         self.episode_length = 100
         self.step_size = 10 # how many pixels to move in each step
@@ -101,6 +102,7 @@ class DQNAgent(Agent):
         if num < self.eps:
             action = np.random.choice(self.action_space)
         else:
+            self.eps *= self.decay_rate
             action = np.argmax(self.model.predict(state.reshape(1, 40))[0])
         return action
 
