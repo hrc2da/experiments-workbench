@@ -146,7 +146,7 @@ class DQNAgent(Agent):
             max_next_pred = np.max(next_state_pred)
             max_next_action = np.argmax(next_state_pred)
             target_q_value = reward + self.discount_rate * max_next_pred
-            old_state_pred[max_next_action] = target_q_value
+            old_state_pred[action] = target_q_value
             # as an optimization, try not un-shaping and re_shaping old_state_pred
             self.model.fit(old_state.reshape(1, 40), old_state_pred.reshape(1, 32), epochs=1, verbose=0)
 
