@@ -16,8 +16,4 @@ environment_params:
   subsample_scale: 1
 experiment_description: SARSA agent, Distopia Environment
 experiment_type: experiment_types.agent_experiment.AgentExperiment
-<<<<<<< HEAD
 n_workers: 7
-=======
-n_workers: 7
->>>>>>> 662c9259426fc98ca3b658d184a10b4f16dea287

@@ -180,6 +180,8 @@ class DQNAgent(Agent):
             for j in range(self.episode_length):
                 action = self.get_action(curr_state)
                 next_state, reward = self.take_action(environment, action)
+                metric = environment.get_metrics(environment.state)
+                train_metric_log.append(metric)
                 train_reward_log.append(reward)
                 train_design_log.append(environment.state)
                 # add this experience to memory
@@ -188,7 +190,12 @@ class DQNAgent(Agent):
                     self.replay()  # do memory replay after every 10 steps
                 if status is not None:
                     status.put('next')
-        self.evaluate_model(environment, 200, initial)
+        self.evaluate_model(environment, 100, initial)
+        print("="*30)
+        print(train_design_log)
+        print(train_metric_log)
+        print(train_reward_log)
+        print("="*30)
         # After training is done, save the model
         model_name = "trained_dqn_"+str(self.num_episodes)+"_"+str(self.episode_length)
         self.save_model(model_name)
