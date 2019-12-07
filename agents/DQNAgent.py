@@ -18,7 +18,7 @@ class DQNAgent(Agent):
         self.nb_actions = 32
         self.nb_metrics = 3
         self.optimizer = Adam(lr=0.001)
-        self.memory = [] #TODO: we can also consider making this into a fixed-length queue
+        self.memory = [] #TODO: we can also consider making this a fixed-length queue
         self.action_space = np.arange(0, 32)
         self.batch_size = 16
         self.build_model()
@@ -71,10 +71,14 @@ class DQNAgent(Agent):
         district_metrics = environment.get_district_metrics(design)
         for i in range(8):
             block_x, block_y = design[i][0]
+            # normalize metrics and pixels 
+            block_x = (block_x-environment.min_x)/(environment.max_x-environment.min_x)
+            block_y = (block_y-environment.min_y)/(environment.max_y-environment.min_y)
+            dmetrics_normed = environment.standardize_metrics(district_metrics[i])
             ret_state[i][0] = block_x
             ret_state[i][1] = block_y
             for j in range(2, 5):
-                ret_state[i][j] = district_metrics[i][j-2]
+                ret_state[i][j] = dmetrics_normed[j-2]
         return ret_state
 
     def build_model(self):
@@ -141,9 +145,6 @@ class DQNAgent(Agent):
         """Gets a random batch from memory and replay"""
         batch = random.sample(self.memory, self.batch_size)
         for old_state, action, reward, next_state in batch:
-            # print("*"*30)
-            # print(next_state.reshape(1, 40))
-            # print("*"*30)
             next_state_pred = self.model.predict(next_state.reshape(1, 40))[0]
             print(next_state_pred)
             old_state_pred = self.model.predict(old_state.reshape(1, 40))[0]
