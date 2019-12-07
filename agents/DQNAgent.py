@@ -72,9 +72,14 @@ class DQNAgent(Agent):
         for i in range(8):
             block_x, block_y = design[i][0]
             # normalize metrics and pixels 
-            block_x = (block_x-environment.min_x)/(environment.max_x-environment.min_x)
-            block_y = (block_y-environment.min_y)/(environment.max_y-environment.min_y)
-            dmetrics_normed = environment.standardize_metrics(district_metrics[i])
+            block_x = (block_x-environment.x_min)/(environment.x_max-environment.x_min)
+            block_y = (block_y-environment.y_min)/(environment.y_max-environment.y_min)
+            # convert distric_metrics to list
+            dmetrics_list = []
+            for j in range(3):
+                dmetrics_list.append(district_metrics[i][j])
+            dmetrics_list = np.array(dmetrics_list)
+            dmetrics_normed = environment.standardize_metrics(dmetrics_list)
             ret_state[i][0] = block_x
             ret_state[i][1] = block_y
             for j in range(2, 5):
