@@ -41,11 +41,11 @@ class DistopiaData(Data):
 
 #        for log in logs:
         rewards = []
-        cur_task = logs["task"]
+        cur_task = logs[0]["task"]
         print(cur_task)
         cur_trajectory = []
         task_counter += 1
-        for episode in logs['episodes']:
+        for episode in logs[0]['episodes']:
             for step in episode['run_log']:
                 step_tuple = []
                 if load_designs:

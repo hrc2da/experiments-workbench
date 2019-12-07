@@ -92,52 +92,36 @@ class DQNAgent(Agent):
             yaml_file.write(self.model.to_yaml())
         self.model.save_weights(filename+".h5")
 
-    def get_action(self, state):
+    def get_action(self, state, environment):
         """In our DQN these are the direction mappings:
             0: left
             1: right
             2: up
             3: down"""
-        num = random.random()
-        if self.eps<self.min_eps:
-            self.eps = self.min_eps
-        if num < self.eps:
-            action = np.random.choice(self.action_space)
-        else:
-            self.eps *= self.decay_rate
-            action = np.argmax(self.model.predict(state.reshape(1, 40))[0])
-        return action
+        """Returns a LEGAL action (following epsilon greedy policy)"""
+        done = False
+        predict_q = self.model.predict(state.reshape(1, 40))[0]
+        while done==False:
+            num = random.random()
+            if self.eps<self.min_eps:
+                self.eps = self.min_eps
+            if num < self.eps:
+                best_action = np.random.choice(self.action_space)
+            else:
+                best_action = np.argmax(predict_q)
+            block_num = best_action//4
+            direction = best_action%4
+            new_design = environment.make_move(block_num, direction)
+            if new_design == -1 or environment.get_metrics(new_design) is None:
+                predict_q[best_action] = np.NINF #Guarantees won't be picked again
+            else:
+                new_state, reward = self.take_action(environment, best_action)
+                done=True
+        self.eps *= self.decay_rate
+        return best_action, reward, new_state
 
     def take_action(self, environment, action):
-        """Take the action in the environment.
-            First unpack the action into block and move
-            Returns the new state and reward"""
-        block_num = action//4
-        direction = action%4
-        # try to make the move, if out of bounds, try again
-        print("TAKING ACTION! Moving block {}, in {} direction".format(block_num, direction))
-        new_design = environment.make_move(block_num, direction)
-        if new_design == -1 or environment.get_metrics(new_design) is None:
-            print("ACTION OUT OF BOUNDS")
-            reward = -20
-            orig_design = environment.state
-            new_state = self.get_state(environment, orig_design) # actually unchanged
-
-        else: # valid move
-            # print("NEW: ", new_design)
-            # print("OLD: ", environment.state)
-            assert new_design!=environment.state
-            new_state = self.get_state(environment, new_design)
-            old_metric = environment.get_metrics(environment.state)
-            new_metric = environment.get_metrics(new_design)
-            reward = environment.get_reward(new_metric, self.reward_weights)
-            environment.take_step(new_design)
-
-        return new_state, reward
-
-    def take_action_eval(self, environment, action):
-        """Take the action in the environment during evaluation.
-            This is exactly the same as take_action, except we assume its not an illegal state"""
+        """Take the action in the environment during evaluation; we assume its not an illegal state"""
         block_num = action//4
         direction = action%4
         # try to make the move, if out of bounds, try again
@@ -157,17 +141,19 @@ class DQNAgent(Agent):
         """Gets a random batch from memory and replay"""
         batch = random.sample(self.memory, self.batch_size)
         for old_state, action, reward, next_state in batch:
-            print("*"*30)
-            print(next_state.reshape(1, 40))
-            print("*"*30)
+            # print("*"*30)
+            # print(next_state.reshape(1, 40))
+            # print("*"*30)
             next_state_pred = self.model.predict(next_state.reshape(1, 40))[0]
+            print(next_state_pred)
             old_state_pred = self.model.predict(old_state.reshape(1, 40))[0]
+            print(old_state_pred)
             max_next_pred = np.max(next_state_pred)
             max_next_action = np.argmax(next_state_pred)
             target_q_value = reward + self.discount_rate * max_next_pred
             old_state_pred[action] = target_q_value
             # as an optimization, try not un-shaping and re_shaping old_state_pred
-            self.model.fit(old_state.reshape(1, 40), old_state_pred.reshape(1, 32), epochs=1, verbose=0)
+            self.model.fit(old_state.reshape(1, 40), old_state_pred.reshape(1, 32), epochs=1, verbose=1)
 
     def remember(self, state, action, reward, next_state):
         """adds the experience into the dqn memory"""
@@ -185,8 +171,7 @@ class DQNAgent(Agent):
             init_design = environment.state
             curr_state = self.get_state(environment, init_design)
             for j in range(self.episode_length):
-                action = self.get_action(curr_state)
-                next_state, reward = self.take_action(environment, action)
+                action, reward, next_state = self.get_action(curr_state,environment)
                 metric = environment.get_metrics(environment.state)
                 train_metric_log.append(metric)
                 train_reward_log.append(reward)
@@ -212,23 +197,14 @@ class DQNAgent(Agent):
         """Use the currently trained model to play distopia from a random
             starting state for num_steps steps, plot the metrics"""
         environment.reset(initial, max_blocks_per_district = 1)
+        init_design = environment.state
+        curr_state = self.get_state(environment, init_design)
         rewards_log = []
-        curr_state = self.get_state(environment, environment.state)
         for _ in range(num_steps):
-            done = False
-            predicted_q = self.model.predict(curr_state.reshape(1, 40))[0]
-            while done == False:
-                best_action = np.argmax(predicted_q)
-                block_num = best_action//4
-                direction = best_action%4
-                new_design = environment.make_move(block_num, direction)
-                if new_design == -1 or environment.get_metrics(new_design) is None:
-                    predicted_q[best_action] = np.NINF #Guarantees won't be picked again
-                else:
-                    new_state, reward = self.take_action_eval(environment, best_action)
-                    rewards_log.append(reward)
-                    curr_state = new_state
-                    done=True
+            action, reward, next_state = self.get_action(curr_state,environment)
+            rewards_log.append(reward)
+            curr_state = next_state
+
         plt.plot(rewards_log)
         plt.savefig(os.path.join(os.getcwd(),"{}.png".format("agent_sarsa_dqn_reward")))
 

@@ -109,11 +109,10 @@ def plot_rewards(data_dir):
             r_list = pkl.load(pklfile)
             r_avg = []
             cutter = 0
-            while cutter <= 99000:
-                r_avg.append(sum(r_list[cutter:cutter+1000])/1000)
-                cutter=cutter+1000
+            while cutter <= 10000:
+                r_avg.append(sum(r_list[cutter:cutter+100])/100)
+                cutter=cutter+100
             plt.clf()
-            plt.ylim(-2.0, 2.0)
             plt.plot(r_avg)
             plt.title(cur_file)
             if output_dir:
