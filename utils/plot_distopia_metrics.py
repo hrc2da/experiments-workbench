@@ -90,6 +90,7 @@ def plot_metrics(data_dir):
                 print(len(v)),
                 for vrun in v:
                     plot_trajectory(trajectory = vrun,title = k, names = metrics, outdir = str(output_dir), prefix =title_prefix)
+                    break
             n_keys = len(task_dict.values())
             print(n_keys)
             del data
@@ -109,9 +110,9 @@ def plot_rewards(data_dir):
             r_list = pkl.load(pklfile)
             r_avg = []
             cutter = 0
-            while cutter <= 1000:
-                r_avg.append(sum(r_list[cutter:cutter+50])/50)
-                cutter=cutter+50
+            while cutter <= 5000:
+                r_avg.append(sum(r_list[cutter:cutter+100])/100)
+                cutter=cutter+100
             plt.clf()
             plt.plot(r_avg)
             plt.title(cur_file)

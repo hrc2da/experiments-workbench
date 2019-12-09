@@ -10,6 +10,7 @@ from keras.optimizers import Adam
 import random
 from matplotlib import pyplot as plt
 import os
+from collections import deque
 
 class DQNAgent(Agent):
     def __init__(self):
@@ -18,10 +19,12 @@ class DQNAgent(Agent):
         self.nb_actions = 32
         self.nb_metrics = 3
         self.optimizer = Adam(lr=0.001)
-        self.memory = [] #TODO: we can also consider making this a fixed-length queue
+        self.memory = deque(maxlen=20000) 
         self.action_space = np.arange(0, 32)
         self.batch_size = 16
         self.build_model()
+        self.total_pop = 0
+        self.max_pvi = 246977.5
 
     def set_params(self, specs_dict):
         self.num_metrics = specs_dict['num_metrics']
@@ -69,21 +72,19 @@ class DQNAgent(Agent):
 
         ret_state = np.zeros((8, 5))
         district_metrics = environment.get_district_metrics(design)
+        if self.total_pop==0: # so that we don't recompute everytime
+            for i in range(8):
+                self.total_pop+=district_metrics[i][0]
         for i in range(8):
             block_x, block_y = design[i][0]
             # normalize metrics and pixels 
             block_x = (block_x-environment.x_min)/(environment.x_max-environment.x_min)
             block_y = (block_y-environment.y_min)/(environment.y_max-environment.y_min)
-            # convert distric_metrics to list
-            dmetrics_list = []
-            for j in range(3):
-                dmetrics_list.append(district_metrics[i][j])
-            dmetrics_list = np.array(dmetrics_list)
-            dmetrics_normed = environment.standardize_metrics(dmetrics_list)
             ret_state[i][0] = block_x
             ret_state[i][1] = block_y
-            for j in range(2, 5):
-                ret_state[i][j] = dmetrics_normed[j-2]
+            ret_state[i][2] = district_metrics[i][0]/self.total_pop
+            ret_state[i][3] = district_metrics[i][1]/self.max_pvi
+            ret_state[i][4] = district_metrics[i][2]
         return ret_state
 
     def build_model(self):
@@ -134,13 +135,13 @@ class DQNAgent(Agent):
         block_num = action//4
         direction = action%4
         # try to make the move, if out of bounds, try again
-        print("TAKING ACTION! Moving block {}, in {} direction".format(block_num, direction))
+        # print("TAKING ACTION! Moving block {}, in {} direction".format(block_num, direction))
         new_design = environment.make_move(block_num, direction)
         assert new_design!=environment.state
         new_state = self.get_state(environment, new_design)
         old_metric = environment.get_metrics(environment.state)
         new_metric = environment.get_metrics(new_design)
-        reward = environment.get_reward(new_metric, self.reward_weights)
+        reward = environment.get_reward(new_metric-old_metric, self.reward_weights)
         environment.take_step(new_design)
 
         return new_state, reward
@@ -151,15 +152,15 @@ class DQNAgent(Agent):
         batch = random.sample(self.memory, self.batch_size)
         for old_state, action, reward, next_state in batch:
             next_state_pred = self.model.predict(next_state.reshape(1, 40))[0]
-            print(next_state_pred)
+            # print(next_state_pred)
             old_state_pred = self.model.predict(old_state.reshape(1, 40))[0]
-            print(old_state_pred)
+            # print(old_state_pred)
             max_next_pred = np.max(next_state_pred)
             max_next_action = np.argmax(next_state_pred)
             target_q_value = reward + self.discount_rate * max_next_pred
             old_state_pred[action] = target_q_value
             # as an optimization, try not un-shaping and re_shaping old_state_pred
-            self.model.fit(old_state.reshape(1, 40), old_state_pred.reshape(1, 32), epochs=1, verbose=1)
+            self.model.fit(old_state.reshape(1, 40), old_state_pred.reshape(1, 32), epochs=1, verbose=0)
 
     def remember(self, state, action, reward, next_state):
         """adds the experience into the dqn memory"""
@@ -184,16 +185,11 @@ class DQNAgent(Agent):
                 train_design_log.append(environment.state)
                 # add this experience to memory
                 self.remember(curr_state, action, reward, next_state)
-                if j%10==0 and j>=20:
+                if j%5==0 and j>=20:
                     self.replay()  # do memory replay after every 10 steps
                 if status is not None:
                     status.put('next')
         self.evaluate_model(environment, 500, initial)
-        print("="*30)
-        print(train_design_log)
-        print(train_metric_log)
-        print(train_reward_log)
-        print("="*30)
         # After training is done, save the model
         model_name = "trained_dqn_"+str(self.num_episodes)+"_"+str(self.episode_length)
         self.save_model(model_name)
