@@ -19,7 +19,7 @@ class DQNAgent(Agent):
         self.nb_actions = 32
         self.nb_metrics = 3
         self.optimizer = Adam(lr=0.001)
-        self.memory = deque(maxlen=20000) 
+        self.memory = deque(maxlen=2000) 
         self.action_space = np.arange(0, 32)
         self.batch_size = 16
         self.build_model()
@@ -189,7 +189,7 @@ class DQNAgent(Agent):
                     self.replay()  # do memory replay after every 10 steps
                 if status is not None:
                     status.put('next')
-        self.evaluate_model(environment, 500, initial)
+        self.evaluate_model(environment, 100, initial)
         # After training is done, save the model
         model_name = "trained_dqn_"+str(self.num_episodes)+"_"+str(self.episode_length)
         self.save_model(model_name)
