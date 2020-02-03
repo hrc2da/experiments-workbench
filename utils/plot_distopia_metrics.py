@@ -98,7 +98,7 @@ def plot_metrics(data_dir):
             data.set_params({'metric_names':metrics,'preprocessors':[]})
             new_user = False
 
-def plot_rewards(data_dir):
+def plot_rewards(data_dir, given_episodes, given_ep_length):
     """For the rewards pickle file, be sure to name it with the task array"""
     input_glob = sorted(glob(os.path.join(str(data_dir),'*pickle.txt')))
     output_dir = os.path.join(str(data_dir),"images")
@@ -110,10 +110,11 @@ def plot_rewards(data_dir):
             r_list = pkl.load(pklfile)
             r_avg = []
             cutter = 0
-            while cutter <= 5000:
-                r_avg.append(sum(r_list[cutter:cutter+100])/100)
-                cutter=cutter+100
+            while cutter <= given_episodes * given_ep_length:
+                r_avg.append(sum(r_list[cutter:cutter+given_ep_length])/given_ep_length)
+                cutter=cutter+given_ep_length
             plt.clf()
+            plt.ylim(-3.0, 3.0)
             plt.plot(r_avg)
             plt.title(cur_file)
             if output_dir:

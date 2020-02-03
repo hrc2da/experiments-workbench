@@ -4,15 +4,15 @@ from distopia.mapping._voronoi import ColliderException
 from random import randint
 import numpy as np
 from tensorflow import keras
-from keras.models import Sequential, model_from_yaml
-from keras.layers import Dense, Activation, Flatten
+from keras.models import Sequential, model_from_yaml, Model
+from keras.layers import Dense, Activation, Flatten, Input, Multiply
 from keras.optimizers import Adam
 import random
 from matplotlib import pyplot as plt
 import os
 from collections import deque
 
-class DQNAgent(Agent):
+class DQNAgentMask(Agent):
     def __init__(self):
         print('initializing DQN agent')
         self.reward_weights = []
@@ -91,13 +91,16 @@ class DQNAgent(Agent):
         return ret_state
 
     def build_model(self):
-        self.model = Sequential()
-        self.model.add(Dense(64, input_dim=40))
-        self.model.add(Activation('relu'))
-        self.model.add(Dense(64))
-        self.model.add(Activation('relu'))
-        self.model.add(Dense(self.nb_actions))
-        self.model.add(Activation('linear'))
+
+        state_input = Input(shape=(40,))
+        actions_input = Input(shape=(self.nb_actions,))
+
+        x1 = Dense(64, activation='relu')(state_input)
+        x2 = Dense(64, activation='relu')(x1)
+        x3 = Dense(self.nb_actions, activation='linear')(x2)
+        out = Multiply()([x3, actions_input])
+
+        self.model = Model(inputs = [state_input, actions_input], outputs = out)
         self.model.compile(loss='mse', optimizer=self.optimizer)
 
     def save_model(self, filename):
@@ -113,7 +116,8 @@ class DQNAgent(Agent):
             3: down"""
         """Returns a LEGAL action (following epsilon greedy policy)"""
         done = False
-        predict_q = self.model.predict(state.reshape(1, 40))[0]
+        all_actions_mask = np.ones((32,))
+        predict_q = self.model.predict([state.reshape(1,40), all_actions_mask.reshape(1,32)])[0]
         while done==False:
             num = random.random()
             if self.eps<self.min_eps:
@@ -150,39 +154,38 @@ class DQNAgent(Agent):
         return new_state, reward
 
 
-    def replay(self):
-        """Gets a random batch from memory and replay"""
-        batch = random.sample(self.memory, self.batch_size)
-        for old_state, action, reward, next_state in batch:
-            next_state_pred = self.model.predict(next_state.reshape(1, 40))[0]
-            # print(next_state_pred)
-            old_state_pred = self.model.predict(old_state.reshape(1, 40))[0]
-            # print(old_state_pred)
-            max_next_pred = np.max(next_state_pred)
-            max_next_action = np.argmax(next_state_pred)
-            target_q_value = reward + self.discount_rate * max_next_pred
-            old_state_pred[action] = target_q_value
-            # as an optimization, try not un-shaping and re_shaping old_state_pred
-            self.model.fit(old_state.reshape(1, 40), old_state_pred.reshape(1, 32), epochs=1, verbose=0)
-
     # def replay(self):
-    #     #Sample from memory, isolate into different columns
+    #     """Gets a random batch from memory and replay"""
     #     batch = random.sample(self.memory, self.batch_size)
-    #     old_states = [y[0] for y in batch]
-    #     actions = [y[1] for y in batch]
-    #     one_hot_actions = [[0]* self.nb_actions for y in batch]
-    #     rewards = [y[2] for y in batch]
-    #     next_states = [y[3] for y in batch]
-    #     for i in range(len(batch)):
-    #         old_states[i] =  old_states[i].reshape(1,40)
-    #         next_states[i] = old_states[i].reshape(1,40)
-    #         one_hot_actions[i][actions[i]] = 1
-    #
-    #     next_states_q_vals = self.model.predict([next_states,np.ones(one_hot_actions.shape)])
-    #     max_q_next_states = np.max(next_states_q_vals,axis=1)
-    #     real_q_vals = rewards + max_q_next_states*self.discount_rate
-    #
-    #     self.model.fit([old_states,one_hot_actions], one_hot_actions * real_q_vals[:,None])
+    #     for old_state, action, reward, next_state in batch:
+    #         next_state_pred = self.model.predict(next_state.reshape(1, 40))[0]
+    #         # print(next_state_pred)
+    #         old_state_pred = self.model.predict(old_state.reshape(1, 40))[0]
+    #         # print(old_state_pred)
+    #         max_next_pred = np.max(next_state_pred)
+    #         max_next_action = np.argmax(next_state_pred)
+    #         target_q_value = reward + self.discount_rate * max_next_pred
+    #         old_state_pred[action] = target_q_value
+    #         # as an optimization, try not un-shaping and re_shaping old_state_pred
+    #         self.model.fit(old_state.reshape(1, 40), old_state_pred.reshape(1, 32), epochs=1, verbose=0)
+
+    def replay(self):
+        #Sample from memory, isolate into different columns
+        batch = random.sample(self.memory, self.batch_size)
+        old_states = [y[0] for y in batch]
+        actions = [y[1] for y in batch]
+        one_hot_actions = [[0]* self.nb_actions for y in batch]
+        rewards = [y[2] for y in batch]
+        next_states = [y[3] for y in batch]
+        for i in range(len(batch)):
+            old_states[i] =  old_states[i].reshape(40,)
+            next_states[i] = next_states[i].reshape(40,)
+            one_hot_actions[i][actions[i]] = 1
+        next_states_q_vals = self.model.predict([next_states,np.ones((self.batch_size, self.nb_actions))])
+        max_q_next_states = np.max(next_states_q_vals,axis=1)
+        real_q_vals = rewards + max_q_next_states*self.discount_rate
+
+        self.model.fit([old_states,one_hot_actions], one_hot_actions * real_q_vals[:,None])
 
 
 
@@ -217,14 +220,14 @@ class DQNAgent(Agent):
                     status.put('next')
 #        self.evaluate_model(environment, 100, 10, initial)
         # After training is done, save the model
-        model_name = "trained_dqn_"+str(self.num_episodes)+"_"+str(self.episode_length)
+        model_name = "trained_dqn_mask_"+str(self.num_episodes)+"_"+str(self.episode_length)
         self.save_model(model_name)
         return train_design_log, train_metric_log, train_reward_log
 
     def evaluate_model(self, environment, num_steps, num_episodes, initial=None):
         """Use the currently trained model to play distopia from a random
             starting state for num_steps steps, plot the metrics"""
-        filename = "trained_dqn_"+str(20)+"_"+str(1000)
+        filename = "trained_dqn_mask_"+str(20)+"_"+str(1000)
 
         print("Evaluating on seed 0")
         environment.seed(0)
@@ -248,13 +251,13 @@ class DQNAgent(Agent):
             final_reward.append(rewards_log[-1]  - rewards_log[0])
 
         plt.plot(final_reward)
-        plt.savefig(os.path.join(os.getcwd(),"{}.png".format("agent_dqn_nomask_eval_reward")))
+        plt.savefig(os.path.join(os.getcwd(),"{}.png".format("agent_dqn_mask_eval_reward")))
 
 
     def run(self, environment, status=None, initial=None):
         # FIrst ensure that there are enough experiences in memory to sample from
 #        environment.reset(initial, max_blocks_per_district = 1)
 #        train_design_log, train_metric_log, train_reward_log = self.train(environment, status, initial)
-        self.evaluate_model(environment, 100, 100, None)
+        self.evaluate_model(environment, 100, 100)
         exit(0)
         return train_design_log, train_metric_log, train_reward_log, self.num_episodes
