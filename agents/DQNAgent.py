@@ -10,7 +10,7 @@ from keras.optimizers import Adam
 import random
 from matplotlib import pyplot as plt
 import os
-from collections import deque
+from utils import ringbuffer
 
 class DQNAgent(Agent):
     def __init__(self):
@@ -42,7 +42,7 @@ class DQNAgent(Agent):
         self.num_episodes = 1
         self.episode_length = 100
         self.step_size = 10 # how many pixels to move in each step
-        self.dequeue_size = 10000 #Size of replay buffer
+        self.memory_size = 10000 #Size of replay buffer
         self.init_explore = 50
         if 'num_episodes' in specs_dict:
             self.num_episodes = specs_dict['num_episodes']
@@ -58,7 +58,7 @@ class DQNAgent(Agent):
             self.step_size = specs_dict['step_size']
         if 'buffer_size' in specs_dict:
             self.dequeue_size = specs_dict['buffer_size']
-        self.memory = deque(maxlen=self.dequeue_size)
+        self.memory = ringbuffer.RingBuffer(self.memory_size)
         self.n_steps = self.num_episodes * self.episode_length
         print("num episodes: " + str(self.num_episodes))
         print("episode length: " + str(self.episode_length))
@@ -152,18 +152,20 @@ class DQNAgent(Agent):
 
     def replay(self):
         """Gets a random batch from memory and replay"""
-        batch = random.sample(self.memory, self.batch_size)
+        batch = self.memory.sample(self.batch_size)
+        old_states = []
+        old_state_preds = []
         for old_state, action, reward, next_state in batch:
             next_state_pred = self.model.predict(next_state.reshape(1, 40))[0]
-            # print(next_state_pred)
             old_state_pred = self.model.predict(old_state.reshape(1, 40))[0]
-            # print(old_state_pred)
             max_next_pred = np.max(next_state_pred)
             max_next_action = np.argmax(next_state_pred)
             target_q_value = reward + self.discount_rate * max_next_pred
             old_state_pred[action] = target_q_value
+            old_states.append(old_state.reshape(1, 40))
+            old_state_preds.append(old_state_pred.reshape(1, 32))
             # as an optimization, try not un-shaping and re_shaping old_state_pred
-            self.model.fit(old_state.reshape(1, 40), old_state_pred.reshape(1, 32), epochs=1, verbose=0)
+        self.model.fit(old_states, old_state_preds, batch_size=self.batch_size, epochs=1, verbose=0)
 
     # def replay(self):
     #     #Sample from memory, isolate into different columns
