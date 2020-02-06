@@ -20,7 +20,7 @@ class DQNAgent(Agent):
         self.nb_metrics = 3
         self.optimizer = Adam(lr=0.001)
         self.action_space = np.arange(0, 32)
-        self.batch_size = 8
+        self.batch_size = 32
         self.build_model()
         self.total_pop = 0
         self.max_pvi = 246977.5
@@ -142,7 +142,7 @@ class DQNAgent(Agent):
         new_design = environment.make_move(block_num, direction)
         assert new_design!=environment.state
         new_state = self.get_state(environment, new_design)
-        old_metric = environment.get_metrics(environment.state)
+        # old_metric = environment.get_metrics(environment.state)
         new_metric = environment.get_metrics(new_design)
         reward = environment.get_reward(new_metric, self.reward_weights)
         environment.take_step(new_design)
@@ -155,28 +155,16 @@ class DQNAgent(Agent):
         batch = self.memory.sample(self.batch_size)
         old_states = []
         old_state_preds = []
-        print("BATCH IS LIKE THIS: ", np.shape(batch))
-        print(batch)
         for old_state, action, reward, next_state in batch:
             next_state_pred = self.model.predict(next_state.reshape(1, 40))[0]
             old_state_pred = self.model.predict(old_state.reshape(1, 40))[0]
             max_next_pred = np.max(next_state_pred)
-            max_next_action = np.argmax(next_state_pred)
             target_q_value = reward + self.discount_rate * max_next_pred
             old_state_pred[action] = target_q_value
             old_states.append(old_state.reshape(1, 40))
             old_state_preds.append(old_state_pred.reshape(1, 32))
-            # if type(old_states)==int:
-            #     old_states = old_state.reshape(1, 40)
-            #     old_state_preds = old_state_pred.reshape(1, 32)
-            # else:
-            #     old_states = np.stack(old_states, old_state.reshape(1, 40))
-            #     old_state_preds = np.stack(old_state_preds, old_state_pred.reshape(1, 32)) 
-            # as an optimization, try not un-shaping and re_shaping old_state_pred
         old_states = np.array(old_states).reshape(self.batch_size, 40)
         old_state_preds = np.array(old_state_preds).reshape(self.batch_size, 32)
-        print("AFTER CALCULATING THE PREDICTIONS: ", np.shape(old_states))
-        print(old_states)
         self.model.fit(np.array(old_states), np.array(old_state_preds), batch_size=self.batch_size, epochs=1, verbose=0)
 
     # def replay(self):
@@ -223,7 +211,7 @@ class DQNAgent(Agent):
                 train_metric_log.append(metric)
                 train_reward_log.append(reward)
                 train_design_log.append(environment.state)
-                # add this experience to memory
+                # add this experience to memappendory
                 self.remember(curr_state, action, reward, next_state)
                 if j%5==0 and j>=self.init_explore:
                     self.replay()  # do memory replay after every 10 steps
