@@ -125,25 +125,25 @@ class DQNAgent(Agent):
             block_num = best_action//4
             direction = best_action%4
             new_design = environment.make_move(block_num, direction)
-            if new_design == -1 or environment.get_metrics(new_design) is None:
+            new_metric = environment.get_metrics(new_design)
+            if new_design == -1 or new_metric is None:
                 predict_q[best_action] = np.NINF #Guarantees won't be picked again
             else:
-                new_state, new_metric, reward = self.take_action(environment, new_design)
+                new_state, reward = self.take_action(environment, new_design, new_metric)
                 done=True
         self.eps *= self.decay_rate
-        return best_action, new_state, new_metric, reward
+        return best_action, new_state, reward
 
-    def take_action(self, environment, new_design):
+    def take_action(self, environment, new_design, new_metric):
         """Take the action in the environment during evaluation; we assume its not an illegal state"""
         # try to make the move, if out of bounds, try again
         # print("TAKING ACTION! Moving block {}, in {} direction".format(block_num, direction))
-        assert new_design!=environment.state
+        # assert new_design!=environment.state
         new_state = self.get_state(environment, new_design)
-        new_metric = environment.get_metrics(new_design)
         reward = environment.get_reward(new_metric, self.reward_weights)
         environment.take_step(new_design)
 
-        return new_state, new_metric, reward
+        return new_state, reward
 
 
     def replay(self):
@@ -163,26 +163,6 @@ class DQNAgent(Agent):
         old_state_preds = np.array(old_state_preds).reshape(self.batch_size, 32)
         self.model.fit(np.array(old_states), np.array(old_state_preds), batch_size=self.batch_size, epochs=1, use_multiprocessing=True, verbose=0)
 
-    # def replay(self):
-    #     #Sample from memory, isolate into different columns
-    #     batch = random.sample(self.memory, self.batch_size)
-    #     old_states = [y[0] for y in batch]
-    #     actions = [y[1] for y in batch]
-    #     one_hot_actions = [[0]* self.nb_actions for y in batch]
-    #     rewards = [y[2] for y in batch]
-    #     next_states = [y[3] for y in batch]
-    #     for i in range(len(batch)):
-    #         old_states[i] =  old_states[i].reshape(1,40)
-    #         next_states[i] = old_states[i].reshape(1,40)
-    #         one_hot_actions[i][actions[i]] = 1
-    #
-    #     next_states_q_vals = self.model.predict([next_states,np.ones(one_hot_actions.shape)])
-    #     max_q_next_states = np.max(next_states_q_vals,axis=1)
-    #     real_q_vals = rewards + max_q_next_states*self.discount_rate
-    #
-    #     self.model.fit([old_states,one_hot_actions], one_hot_actions * real_q_vals[:,None])
-
-
 
     def remember(self, state, action, reward, next_state):
         """adds the experience into the dqn memory"""
@@ -200,11 +180,12 @@ class DQNAgent(Agent):
             # reset the block positions after every episode
             environment.reset(None, max_blocks_per_district = 1)
             init_design = environment.state
-            print(init_design)
+            # print(init_design)
             curr_state = self.get_state(environment, init_design)
             for j in range(self.episode_length):
-                action, next_state, metric, reward = self.get_action(curr_state,environment)
-                train_metric_log.append(metric)
+                # action, next_state, metric, reward = self.get_action(curr_state,environment)
+                # train_metric_log.append(metric)
+                action, next_state, reward = self.get_action(curr_state, environment)
                 train_reward_log.append(reward)
                 train_design_log.append(environment.state)
                 # add this experience to memappendory
@@ -238,7 +219,7 @@ class DQNAgent(Agent):
             print(curr_state)
             rewards_log = []
             for i in range(num_steps):
-                action, reward, next_state = self.get_action(curr_state,environment)
+                _, reward, next_state = self.get_action(curr_state,environment)
                 rewards_log.append(reward)
                 curr_state = next_state
             final_reward.append(sum(rewards_log)/len(rewards_log))
