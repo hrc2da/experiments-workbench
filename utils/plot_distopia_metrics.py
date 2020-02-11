@@ -121,3 +121,5 @@ def plot_rewards(data_dir, given_episodes, given_ep_length):
                 plt.savefig(os.path.join(output_dir,"{}.png".format(cur_file)))
             else:
                 plt.show()
+            print("AVERAGE REWARD: ")
+            print(sum(r_avg)/len(r_avg))

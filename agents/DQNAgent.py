@@ -128,26 +128,22 @@ class DQNAgent(Agent):
             if new_design == -1 or environment.get_metrics(new_design) is None:
                 predict_q[best_action] = np.NINF #Guarantees won't be picked again
             else:
-                new_state, reward = self.take_action(environment, best_action)
+                new_state, new_metric, reward = self.take_action(environment, new_design)
                 done=True
         self.eps *= self.decay_rate
-        return best_action, reward, new_state
+        return best_action, new_state, new_metric, reward
 
-    def take_action(self, environment, action):
+    def take_action(self, environment, new_design):
         """Take the action in the environment during evaluation; we assume its not an illegal state"""
-        block_num = action//4
-        direction = action%4
         # try to make the move, if out of bounds, try again
         # print("TAKING ACTION! Moving block {}, in {} direction".format(block_num, direction))
-        new_design = environment.make_move(block_num, direction)
         assert new_design!=environment.state
         new_state = self.get_state(environment, new_design)
-        # old_metric = environment.get_metrics(environment.state)
         new_metric = environment.get_metrics(new_design)
         reward = environment.get_reward(new_metric, self.reward_weights)
         environment.take_step(new_design)
 
-        return new_state, reward
+        return new_state, new_metric, reward
 
 
     def replay(self):
@@ -165,7 +161,7 @@ class DQNAgent(Agent):
             old_state_preds.append(old_state_pred.reshape(1, 32))
         old_states = np.array(old_states).reshape(self.batch_size, 40)
         old_state_preds = np.array(old_state_preds).reshape(self.batch_size, 32)
-        self.model.fit(np.array(old_states), np.array(old_state_preds), batch_size=self.batch_size, epochs=1, verbose=0)
+        self.model.fit(np.array(old_states), np.array(old_state_preds), batch_size=self.batch_size, epochs=1, use_multiprocessing=True, verbose=0)
 
     # def replay(self):
     #     #Sample from memory, isolate into different columns
@@ -198,16 +194,16 @@ class DQNAgent(Agent):
         train_metric_log = []
         train_design_log = []
 
-        initial_state = environment.reset(initial, max_blocks_per_district = 1)
+        environment.seed(0)
+
         for i in range(self.num_episodes):
             # reset the block positions after every episode
-            environment.reset(initial_state, max_blocks_per_district = 1)
+            environment.reset(None, max_blocks_per_district = 1)
             init_design = environment.state
             print(init_design)
             curr_state = self.get_state(environment, init_design)
             for j in range(self.episode_length):
-                action, reward, next_state = self.get_action(curr_state,environment)
-                metric = environment.get_metrics(environment.state)
+                action, next_state, metric, reward = self.get_action(curr_state,environment)
                 train_metric_log.append(metric)
                 train_reward_log.append(reward)
                 train_design_log.append(environment.state)
@@ -217,7 +213,6 @@ class DQNAgent(Agent):
                     self.replay()  # do memory replay after every 10 steps
                 if status is not None:
                     status.put('next')
-#        self.evaluate_model(environment, 100, 10, initial)
         # After training is done, save the model
         model_name = "trained_dqn_"+str(self.num_episodes)+"_"+str(self.episode_length)
         self.save_model(model_name)
@@ -226,11 +221,11 @@ class DQNAgent(Agent):
     def evaluate_model(self, environment, num_steps, num_episodes, initial=None):
         """Use the currently trained model to play distopia from a random
             starting state for num_steps steps, plot the metrics"""
+
+        print("Evaluating on seed 43")
+        environment.seed(43)
+
         filename = "trained_dqn_"+str(20)+"_"+str(1000)
-
-        print("Evaluating on seed 0")
-        environment.seed(0)
-
         with open(filename + '.yaml', 'r') as f:
             self.model = model_from_yaml(f.read())
         self.model.load_weights(filename +'.h5')
@@ -243,13 +238,14 @@ class DQNAgent(Agent):
             print(curr_state)
             rewards_log = []
             for i in range(num_steps):
-                print("Step " + str(i))
                 action, reward, next_state = self.get_action(curr_state,environment)
                 rewards_log.append(reward)
                 curr_state = next_state
-            final_reward.append(rewards_log[-1]  - rewards_log[0])
-
+            final_reward.append(sum(rewards_log)/len(rewards_log))
+        plt.ylim(-3.0,3.0)
         plt.plot(final_reward)
+        print("AVG REWARD NO MASK: ")
+        print(sum(final_reward)/len(final_reward))
         plt.savefig(os.path.join(os.getcwd(),"{}.png".format("agent_dqn_nomask_eval_reward")))
 
 
@@ -257,6 +253,6 @@ class DQNAgent(Agent):
         # FIrst ensure that there are enough experiences in memory to sample from
 #        environment.reset(initial, max_blocks_per_district = 1)
         train_design_log, train_metric_log, train_reward_log = self.train(environment, status, initial)
+        print("Training done..Evaluating: ")
         self.evaluate_model(environment, 100, 100, None)
-        exit(0)
         return train_design_log, train_metric_log, train_reward_log, self.num_episodes

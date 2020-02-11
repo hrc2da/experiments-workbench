@@ -132,26 +132,22 @@ class DQNAgentMask(Agent):
             if new_design == -1 or environment.get_metrics(new_design) is None:
                 predict_q[best_action] = np.NINF #Guarantees won't be picked again
             else:
-                new_state, reward = self.take_action(environment, best_action)
+                new_state, reward = self.take_action(environment, new_design)
                 done=True
         self.eps *= self.decay_rate
-        return best_action, reward, new_state
+        return best_action, new_state, new_metric, reward
 
-    def take_action(self, environment, action):
+    def take_action(self, environment, new_design):
         """Take the action in the environment during evaluation; we assume its not an illegal state"""
-        block_num = action//4
-        direction = action%4
         # try to make the move, if out of bounds, try again
         # print("TAKING ACTION! Moving block {}, in {} direction".format(block_num, direction))
-        new_design = environment.make_move(block_num, direction)
         assert new_design!=environment.state
         new_state = self.get_state(environment, new_design)
-        old_metric = environment.get_metrics(environment.state)
         new_metric = environment.get_metrics(new_design)
         reward = environment.get_reward(new_metric, self.reward_weights)
         environment.take_step(new_design)
 
-        return new_state, reward
+        return new_state, new_metric, reward
 
 
     # def replay(self):
@@ -185,7 +181,7 @@ class DQNAgentMask(Agent):
         max_q_next_states = np.max(next_states_q_vals,axis=1)
         real_q_vals = rewards + max_q_next_states*self.discount_rate
 
-        self.model.fit([old_states,one_hot_actions], one_hot_actions * real_q_vals[:,None])
+        self.model.fit([old_states,one_hot_actions], one_hot_actions * real_q_vals[:,None], use_multiprocessing=True)
 
 
 
@@ -195,20 +191,20 @@ class DQNAgentMask(Agent):
 
 
     def train(self, environment, status=None, initial=None):
+
+        environment.seed(0)
         train_reward_log = []
         train_metric_log = []
         train_design_log = []
 
-        initial_state = environment.reset(initial, max_blocks_per_district = 1)
         for i in range(self.num_episodes):
             # reset the block positions after every episode
-            environment.reset(initial_state, max_blocks_per_district = 1)
+            environment.reset(None, max_blocks_per_district = 1)
             init_design = environment.state
             print(init_design)
             curr_state = self.get_state(environment, init_design)
             for j in range(self.episode_length):
-                action, reward, next_state = self.get_action(curr_state,environment)
-                metric = environment.get_metrics(environment.state)
+                action, next_state, metric, reward = self.get_action(curr_state,environment)
                 train_metric_log.append(metric)
                 train_reward_log.append(reward)
                 train_design_log.append(environment.state)
@@ -227,11 +223,11 @@ class DQNAgentMask(Agent):
     def evaluate_model(self, environment, num_steps, num_episodes, initial=None):
         """Use the currently trained model to play distopia from a random
             starting state for num_steps steps, plot the metrics"""
+
+        print("Evaluating on seed 43")
+        environment.seed(43)
+
         filename = "trained_dqn_mask_"+str(20)+"_"+str(1000)
-
-        print("Evaluating on seed 0")
-        environment.seed(0)
-
         with open(filename + '.yaml', 'r') as f:
             self.model = model_from_yaml(f.read())
         self.model.load_weights(filename +'.h5')
@@ -244,20 +240,21 @@ class DQNAgentMask(Agent):
             print(curr_state)
             rewards_log = []
             for i in range(num_steps):
-                print("Step " + str(i))
                 action, reward, next_state = self.get_action(curr_state,environment)
                 rewards_log.append(reward)
                 curr_state = next_state
-            final_reward.append(rewards_log[-1]  - rewards_log[0])
-
+            final_reward.append(sum(rewards_log)/len(rewards_log))
+        plt.ylim(-3.0,3.0)
         plt.plot(final_reward)
+        print("AVG REWARD MASK: ")
+        print(sum(final_reward)/len(final_reward))
         plt.savefig(os.path.join(os.getcwd(),"{}.png".format("agent_dqn_mask_eval_reward")))
 
 
     def run(self, environment, status=None, initial=None):
         # FIrst ensure that there are enough experiences in memory to sample from
 #        environment.reset(initial, max_blocks_per_district = 1)
-#        train_design_log, train_metric_log, train_reward_log = self.train(environment, status, initial)
-        self.evaluate_model(environment, 100, 100)
-        exit(0)
+        train_design_log, train_metric_log, train_reward_log = self.train(environment, status, initial)
+        print("Training done..Evaluating: ")
+        self.evaluate_model(environment, 100, 100, None)
         return train_design_log, train_metric_log, train_reward_log, self.num_episodes

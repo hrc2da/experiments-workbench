@@ -167,6 +167,8 @@ class DistopiaEnvironment(Environment):
 
     def take_step(self, new_state):
         self.state = new_state
+        self.occupied = set(itertools.chain(*self.state.values()))
+
 
     def reset(self, initial=None, n_districts=8, max_blocks_per_district=5):
         '''Initialize the state randomly.
