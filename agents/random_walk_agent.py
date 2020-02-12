@@ -83,16 +83,19 @@ class RWAgent(Agent):
         print("Evaluating on seed 0")
         environment.seed(0)
         final_reward=[]
-        for _ in range(num_episodes):
+        for n in range(num_episodes):
+            print(n)
             environment.reset(initial, max_blocks_per_district = 1)
-            init_design = environment.state
+            # init_design = environment.state
             rewards_log = []
             for i in range(num_steps):
-                print("Step " + str(i))
                 action, reward = self.get_action(environment)
                 rewards_log.append(reward)
             final_reward.append(rewards_log[-1]  - rewards_log[0])
-
+        mean = np.mean(final_reward)
+        var = np.var(final_reward)
+        print("MEAN OF EVAL REWARDS: ", mean)
+        print("VARIANCE OF EVAL REWARDS: ", var)
         plt.plot(final_reward)
         plt.savefig(os.path.join(os.getcwd(),"{}.png".format("random_walk_agent")))
 

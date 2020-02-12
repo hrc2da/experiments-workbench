@@ -125,12 +125,15 @@ class DQNAgent(Agent):
             block_num = best_action//4
             direction = best_action%4
             new_design = environment.make_move(block_num, direction)
-            new_metric = environment.get_metrics(new_design)
-            if new_design == -1 or new_metric is None:
+            if new_design ==-1:
                 predict_q[best_action] = np.NINF #Guarantees won't be picked again
-            else:
-                new_state, reward = self.take_action(environment, new_design, new_metric)
-                done=True
+            else: 
+                new_metric = environment.get_metrics(new_design)
+                if new_metric is None:
+                    predict_q[best_action] = np.NINF #Guarantees won't be picked again
+                else:
+                    new_state, reward = self.take_action(environment, new_design, new_metric)
+                    done=True
         self.eps *= self.decay_rate
         return best_action, new_state, reward
 
@@ -212,14 +215,17 @@ class DQNAgent(Agent):
         self.model.load_weights(filename +'.h5')
 
         final_reward=[]
-        for _ in range(num_episodes):
+        for e in range(num_episodes):
+            print("EPISODE: ", e)
             environment.reset(initial, max_blocks_per_district = 1)
             init_design = environment.state
             curr_state = self.get_state(environment, init_design)
-            print(curr_state)
+            # print(curr_state)
+            # print(curr_state.reshape(1, 40))
             rewards_log = []
             for i in range(num_steps):
-                _, reward, next_state = self.get_action(curr_state,environment)
+                print("STEP: ", i)
+                _, next_state, reward = self.get_action(curr_state,environment)
                 rewards_log.append(reward)
                 curr_state = next_state
             final_reward.append(sum(rewards_log)/len(rewards_log))
@@ -233,7 +239,7 @@ class DQNAgent(Agent):
     def run(self, environment, status=None, initial=None):
         # FIrst ensure that there are enough experiences in memory to sample from
 #        environment.reset(initial, max_blocks_per_district = 1)
-        train_design_log, train_metric_log, train_reward_log = self.train(environment, status, initial)
+        # train_design_log, train_metric_log, train_reward_log = self.train(environment, status, initial)
         print("Training done..Evaluating: ")
-        self.evaluate_model(environment, 100, 100, None)
-        return train_design_log, train_metric_log, train_reward_log, self.num_episodes
+        self.evaluate_model(environment, 50, 100, None)
+        # return train_design_log, train_metric_log, train_reward_log, self.num_episodes
