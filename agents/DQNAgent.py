@@ -173,16 +173,33 @@ class DQNAgent(Agent):
         self.memory.append((state, action, reward, next_state))
 
 
+    def evaluate_q(self, rand_states, environment):
+        max_vals=[]
+        for rand_state in rand_states:
+            actual_state = self.get_state(environment, rand_state)
+            predict_q = self.model.predict(actual_state.reshape(1,40))[0]
+            max_vals.append(np.max(predict_q))
+        return (sum(max_vals)/len(max_vals))
+
     def train(self, environment, status=None, initial=None):
         train_reward_log = []
         train_metric_log = []
         train_design_log = []
+        random_states = []
+        q_progress = []
 
-        environment.reset(None, max_blocks_per_district = 1)
-        init_design = environment.state
+        for i in range(50):
+            environment.reset(None, max_blocks_per_district = 1)
+            rand_design = environment.state
+            random_states.append(rand_design)
+        q_progress.append(self.evaluate_q(random_states, environment))
+
+        # environment.reset(None, max_blocks_per_district = 1)
+        # init_design = environment.state
+        old_reward = 0
         for i in range(self.num_episodes):
             # reset the block positions after every episode
-            environment.reset(init_design, max_blocks_per_district = 1)
+            environment.reset(None, max_blocks_per_district = 1)
             init_design = environment.state
             print(init_design)
             curr_state = self.get_state(environment, init_design)
@@ -194,14 +211,18 @@ class DQNAgent(Agent):
                 train_design_log.append(environment.state)
                 train_metric_log.append(metric)
                 # add this experience to memappendory
-                self.remember(curr_state, action, reward, next_state)
+                self.remember(curr_state, action, reward-old_reward, next_state)
+                old_reward = reward
                 if j%5==0 and len(self.memory) >= self.batch_size:
                     self.replay()  # do memory replay after every 10 steps
                 if status is not None:
                     status.put('next')
+            q_progress.append(self.evaluate_q(random_states, environment))
         # After training is done, save the model
         model_name = "trained_dqn_"+str(self.num_episodes)+"_"+str(self.episode_length)
         self.save_model(model_name)
+        plt.plot(q_progress)
+        plt.savefig(os.path.join(os.getcwd(),"{}.png".format("agent_dqn_q_progress")))
         return train_design_log, train_metric_log, train_reward_log
 
     def evaluate_model(self, environment, num_steps, num_episodes, initial=None):
@@ -243,5 +264,5 @@ class DQNAgent(Agent):
 #        environment.reset(initial, max_blocks_per_district = 1)
         train_design_log, train_metric_log, train_reward_log = self.train(environment, status, initial)
         print("Training done..Evaluating: ")
-        self.evaluate_model(environment, 5, 100, None)
+#        self.evaluate_model(environment, 5, 100, None)
         return train_design_log, train_metric_log, train_reward_log, self.num_episodes
