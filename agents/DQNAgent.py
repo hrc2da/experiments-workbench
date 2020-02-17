@@ -43,7 +43,6 @@ class DQNAgent(Agent):
         self.episode_length = 100
         self.step_size = 10 # how many pixels to move in each step
         self.memory_size = 10000 #Size of replay buffer
-        self.init_explore = 50
         if 'num_episodes' in specs_dict:
             self.num_episodes = specs_dict['num_episodes']
         if 'episode_length' in specs_dict:
@@ -67,6 +66,8 @@ class DQNAgent(Agent):
     def set_task(self, task):
         assert len(task) == self.num_metrics
         self.reward_weights = task
+    def seed(self,seed):
+        np.random.seed(seed)
 
     def get_state(self, environment, design):
         """returns the current positions of the 8 blocks and the metrics
@@ -127,7 +128,7 @@ class DQNAgent(Agent):
             new_design = environment.make_move(block_num, direction)
             if new_design ==-1:
                 predict_q[best_action] = np.NINF #Guarantees won't be picked again
-            else: 
+            else:
                 new_metric = environment.get_metrics(new_design)
                 if new_metric is None:
                     predict_q[best_action] = np.NINF #Guarantees won't be picked again
@@ -135,7 +136,7 @@ class DQNAgent(Agent):
                     new_state, reward = self.take_action(environment, new_design, new_metric)
                     done=True
         self.eps *= self.decay_rate
-        return best_action, new_state, reward
+        return best_action, new_state, new_metric, reward
 
     def take_action(self, environment, new_design, new_metric):
         """Take the action in the environment during evaluation; we assume its not an illegal state"""
@@ -177,23 +178,24 @@ class DQNAgent(Agent):
         train_metric_log = []
         train_design_log = []
 
-        environment.seed(0)
-
+        environment.reset(None, max_blocks_per_district = 1)
+        init_design = environment.state
         for i in range(self.num_episodes):
             # reset the block positions after every episode
-            environment.reset(None, max_blocks_per_district = 1)
+            environment.reset(init_design, max_blocks_per_district = 1)
             init_design = environment.state
-            # print(init_design)
+            print(init_design)
             curr_state = self.get_state(environment, init_design)
             for j in range(self.episode_length):
                 # action, next_state, metric, reward = self.get_action(curr_state,environment)
                 # train_metric_log.append(metric)
-                action, next_state, reward = self.get_action(curr_state, environment)
+                action, next_state, metric, reward = self.get_action(curr_state, environment)
                 train_reward_log.append(reward)
                 train_design_log.append(environment.state)
+                train_metric_log.append(metric)
                 # add this experience to memappendory
                 self.remember(curr_state, action, reward, next_state)
-                if j%5==0 and j>=self.init_explore:
+                if j%5==0 and len(self.memory) >= self.batch_size:
                     self.replay()  # do memory replay after every 10 steps
                 if status is not None:
                     status.put('next')
@@ -225,7 +227,7 @@ class DQNAgent(Agent):
             rewards_log = []
             for i in range(num_steps):
                 print("STEP: ", i)
-                _, next_state, reward = self.get_action(curr_state,environment)
+                _, next_state, _, reward = self.get_action(curr_state,environment)
                 rewards_log.append(reward)
                 curr_state = next_state
             final_reward.append(sum(rewards_log)/len(rewards_log))
@@ -239,7 +241,7 @@ class DQNAgent(Agent):
     def run(self, environment, status=None, initial=None):
         # FIrst ensure that there are enough experiences in memory to sample from
 #        environment.reset(initial, max_blocks_per_district = 1)
-        # train_design_log, train_metric_log, train_reward_log = self.train(environment, status, initial)
+        train_design_log, train_metric_log, train_reward_log = self.train(environment, status, initial)
         print("Training done..Evaluating: ")
-        self.evaluate_model(environment, 50, 100, None)
-        # return train_design_log, train_metric_log, train_reward_log, self.num_episodes
+        self.evaluate_model(environment, 5, 100, None)
+        return train_design_log, train_metric_log, train_reward_log, self.num_episodes

@@ -2,8 +2,8 @@ agent: agents.DQNAgentMask.DQNAgentMask
 agent_params:
   num_metrics: 3
   tasks: [[-1,0,0]]
-  num_episodes: 20
-  episode_length: 1000
+  num_episodes: 200
+  episode_length: 100
   epsilon: 0.99
   min_eps: 0.1
   discount_rate: 0.9
@@ -14,7 +14,7 @@ environment_params:
   env_name: distopia
   metrics: [population, pvi, compactness]
   standardization_file: resources/new_metrics.pkl
-  subsample_scale: 10
-experiment_description: DQN agent, Distopia Environment
+  subsample_scale: 20
+experiment_description: DQN agent Mask, Distopia Environment
 experiment_type: experiment_types.agent_experiment.AgentExperiment
-n_workers: 7
+n_workers: 1

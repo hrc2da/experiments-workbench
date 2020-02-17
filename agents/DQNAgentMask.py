@@ -10,7 +10,7 @@ from keras.optimizers import Adam
 import random
 from matplotlib import pyplot as plt
 import os
-from collections import deque
+from utils import ringbuffer
 
 class DQNAgentMask(Agent):
     def __init__(self):
@@ -42,8 +42,7 @@ class DQNAgentMask(Agent):
         self.num_episodes = 1
         self.episode_length = 100
         self.step_size = 10 # how many pixels to move in each step
-        self.dequeue_size = 10000 #Size of replay buffer
-        self.init_explore = 50
+        self.memory_size = 10000 #Size of replay buffer
         if 'num_episodes' in specs_dict:
             self.num_episodes = specs_dict['num_episodes']
         if 'episode_length' in specs_dict:
@@ -58,7 +57,7 @@ class DQNAgentMask(Agent):
             self.step_size = specs_dict['step_size']
         if 'buffer_size' in specs_dict:
             self.dequeue_size = specs_dict['buffer_size']
-        self.memory = deque(maxlen=self.dequeue_size)
+        self.memory = ringbuffer.RingBuffer(self.memory_size)
         self.n_steps = self.num_episodes * self.episode_length
         print("num episodes: " + str(self.num_episodes))
         print("episode length: " + str(self.episode_length))
@@ -67,6 +66,9 @@ class DQNAgentMask(Agent):
     def set_task(self, task):
         assert len(task) == self.num_metrics
         self.reward_weights = task
+
+    def seed(self,seed):
+        np.random.seed(seed)
 
     def get_state(self, environment, design):
         """returns the current positions of the 8 blocks and the metrics
@@ -129,25 +131,27 @@ class DQNAgentMask(Agent):
             block_num = best_action//4
             direction = best_action%4
             new_design = environment.make_move(block_num, direction)
-            if new_design == -1 or environment.get_metrics(new_design) is None:
+            if new_design == -1:
                 predict_q[best_action] = np.NINF #Guarantees won't be picked again
             else:
-                new_state, reward = self.take_action(environment, new_design)
-                done=True
+                new_metric = environment.get_metrics(new_design)
+                if new_metric is None:
+                    predict_q[best_action] = np.NINF #Guarantees won't be picked again
+                else:
+                    new_state, reward = self.take_action(environment, new_design, new_metric)
+                    done=True
         self.eps *= self.decay_rate
         return best_action, new_state, new_metric, reward
 
-    def take_action(self, environment, new_design):
+    def take_action(self,environment, new_design, new_metric):
         """Take the action in the environment during evaluation; we assume its not an illegal state"""
         # try to make the move, if out of bounds, try again
         # print("TAKING ACTION! Moving block {}, in {} direction".format(block_num, direction))
-        assert new_design!=environment.state
         new_state = self.get_state(environment, new_design)
-        new_metric = environment.get_metrics(new_design)
         reward = environment.get_reward(new_metric, self.reward_weights)
         environment.take_step(new_design)
 
-        return new_state, new_metric, reward
+        return new_state, reward
 
 
     # def replay(self):
@@ -167,7 +171,7 @@ class DQNAgentMask(Agent):
 
     def replay(self):
         #Sample from memory, isolate into different columns
-        batch = random.sample(self.memory, self.batch_size)
+        batch = self.memory.sample(self.batch_size)
         old_states = [y[0] for y in batch]
         actions = [y[1] for y in batch]
         one_hot_actions = [[0]* self.nb_actions for y in batch]
@@ -181,7 +185,7 @@ class DQNAgentMask(Agent):
         max_q_next_states = np.max(next_states_q_vals,axis=1)
         real_q_vals = rewards + max_q_next_states*self.discount_rate
 
-        self.model.fit([old_states,one_hot_actions], one_hot_actions * real_q_vals[:,None], use_multiprocessing=True)
+        self.model.fit([old_states,one_hot_actions], one_hot_actions * real_q_vals[:,None], use_multiprocessing=True, verbose=0)
 
 
 
@@ -190,34 +194,65 @@ class DQNAgentMask(Agent):
         self.memory.append((state, action, reward, next_state))
 
 
+    def evaluate_q(self, rand_states, environment):
+        all_actions_mask = np.ones((32,))
+        max_vals=[]
+        for rand_state in rand_states:
+            actual_state = self.get_state(environment, rand_state)
+            predict_q = self.model.predict([actual_state.reshape(1,40), all_actions_mask.reshape(1,32)])[0]
+            max_vals.append(np.max(predict_q))
+        return (sum(max_vals)/len(max_vals))
+
     def train(self, environment, status=None, initial=None):
 
-        environment.seed(0)
         train_reward_log = []
         train_metric_log = []
         train_design_log = []
+        random_states = []
+        q_progress = []
+        # init_design={}
+        # init_design[0] = [(540,570)]
+        # init_design[1] = [(740,770)]
+        # init_design[2] = [(770,190)]
+        # init_design[3] = [(310,460)]
+        # init_design[4] = [(800,220)]
+        # init_design[5] = [(680,750)]
+        # init_design[6] = [(490,560)]
+        # init_design[7] = [(470,350)]
+        for i in range(50):
+            environment.reset(None, max_blocks_per_district = 1)
+            rand_design = environment.state
+            random_states.append(rand_design)
+        q_progress.append(self.evaluate_q(random_states, environment))
 
+        # environment.reset(None, max_blocks_per_district = 1)
+        # init_design = environment.state
+        old_reward = 0
         for i in range(self.num_episodes):
             # reset the block positions after every episode
             environment.reset(None, max_blocks_per_district = 1)
             init_design = environment.state
-            print(init_design)
             curr_state = self.get_state(environment, init_design)
+            print(init_design)
             for j in range(self.episode_length):
-                action, next_state, metric, reward = self.get_action(curr_state,environment)
-                train_metric_log.append(metric)
+                action, next_state, metric, reward = self.get_action(curr_state, environment)
                 train_reward_log.append(reward)
                 train_design_log.append(environment.state)
+                train_metric_log.append(metric)
                 # add this experience to memory
-                self.remember(curr_state, action, reward, next_state)
-                if j%5==0 and j>=self.init_explore:
-                    self.replay()  # do memory replay after every 10 steps
+                self.remember(curr_state, action, reward-old_reward, next_state)
+                old_reward = reward
+                if j%5==0 and len(self.memory) >= self.batch_size:
+                    self.replay()  # do memory replay after every 5 steps
                 if status is not None:
                     status.put('next')
-#        self.evaluate_model(environment, 100, 10, initial)
+            q_progress.append(self.evaluate_q(random_states, environment))
+
         # After training is done, save the model
         model_name = "trained_dqn_mask_"+str(self.num_episodes)+"_"+str(self.episode_length)
         self.save_model(model_name)
+        plt.plot(q_progress)
+        plt.savefig(os.path.join(os.getcwd(),"{}.png".format("agent_dqn_mask_q_progress")))
         return train_design_log, train_metric_log, train_reward_log
 
     def evaluate_model(self, environment, num_steps, num_episodes, initial=None):
@@ -227,7 +262,7 @@ class DQNAgentMask(Agent):
         print("Evaluating on seed 43")
         environment.seed(43)
 
-        filename = "trained_dqn_mask_"+str(20)+"_"+str(1000)
+        filename = "trained_dqn_mask_"+str(1000)+"_"+str(100)
         with open(filename + '.yaml', 'r') as f:
             self.model = model_from_yaml(f.read())
         self.model.load_weights(filename +'.h5')
@@ -240,7 +275,8 @@ class DQNAgentMask(Agent):
             print(curr_state)
             rewards_log = []
             for i in range(num_steps):
-                action, reward, next_state = self.get_action(curr_state,environment)
+                self.eps = 0 #Ensures no random choice is made
+                _,next_state, _, reward = self.get_action(curr_state,environment)
                 rewards_log.append(reward)
                 curr_state = next_state
             final_reward.append(sum(rewards_log)/len(rewards_log))
@@ -256,5 +292,5 @@ class DQNAgentMask(Agent):
 #        environment.reset(initial, max_blocks_per_district = 1)
         train_design_log, train_metric_log, train_reward_log = self.train(environment, status, initial)
         print("Training done..Evaluating: ")
-        self.evaluate_model(environment, 100, 100, None)
+#        self.evaluate_model(environment, 100, 100, None)
         return train_design_log, train_metric_log, train_reward_log, self.num_episodes

@@ -8,7 +8,7 @@ from distopia.app.agent import VoronoiAgent
 from distopia.mapping._voronoi import ColliderException
 
 
-class DistopiaEnvironment(Environment):
+class DistopiaDQNEnvironment(Environment):
     # want to define the voronoi agent for districts and metrics calculations
     # scalar_value is mean over districts
     # scalar_std is standard deviation between districts
@@ -352,6 +352,8 @@ class DistopiaEnvironment(Environment):
             else:
                 print("Collider Exception!")
             return None
+        except AttributeError:
+            print("FAILED DESIGN IS: ", design)
         except AssertionError as e:
             if exc_logger is not None:
                 exc_logger.write(str(design) + '\n')
@@ -362,14 +364,25 @@ class DistopiaEnvironment(Environment):
         if not self.check_legal_districts(districts):
             return None
         return self.extract_metrics(self.metrics,state_metrics,districts)
-        # metric_dict = {}
-        # for state_metric in state_metrics:
-        #     metric_name = state_metric.name
-        #     if metric_name in self.metrics:
-        #         metric_dict[metric_name] = self.metric_extractors[metric_name](state_metric, districts)
 
-        # metrics = np.array([metric_dict[metric] for metric in self.metrics])
-        # return metrics
+    def get_district_metrics(self, design, exc_logger=None):
+        """returns the metrics associated with each district"""
+        try:
+            districts = self.evaluator.get_voronoi_districts(design)
+            state_metrics, _ = self.evaluator.compute_voronoi_metrics(districts)
+            unpacked_metrics = {}
+            for i, d in enumerate(districts):
+                unpacked_metrics[i] = {}
+                unpacked_metrics[i][0] = d.metrics['population'].scalar_value
+                unpacked_metrics[i][1] = d.metrics['pvi'].scalar_value
+                unpacked_metrics[i][2] = d.metrics['compactness'].scalar_value
+            return unpacked_metrics
+        except ColliderException:
+            if exc_logger is not None:
+                exc_logger.write(str(design) + '\n')
+            else:
+                print("Collider Exception!")
+            return None
 
     @staticmethod
     def extract_metrics(metric_names,state_metrics,districts,from_json=False):
@@ -378,11 +391,11 @@ class DistopiaEnvironment(Environment):
             if from_json:
                 metric_name = state_metric["name"]
                 if metric_name in metric_names:
-                    metric_dict[metric_name] = DistopiaEnvironment.json_metric_extractors[metric_name](state_metric, districts)
+                    metric_dict[metric_name] = DistopiaDQNEnvironment.json_metric_extractors[metric_name](state_metric, districts)
             else:
                 metric_name = state_metric.name
                 if metric_name in metric_names:
-                    metric_dict[metric_name] = DistopiaEnvironment.metric_extractors[metric_name](state_metric, districts)
+                    metric_dict[metric_name] = DistopiaDQNEnvironment.metric_extractors[metric_name](state_metric, districts)
 
         metrics = np.array([metric_dict[metric] for metric in metric_names])
         return metrics

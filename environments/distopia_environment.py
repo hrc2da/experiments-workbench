@@ -145,15 +145,14 @@ class DistopiaEnvironment(Environment):
         MODIFIED: To handle the case where the map is subsampled to reduce state space
         for the SARSA agent
         '''
-        seen = self.occupied
         x_range = np.arange(m, n+1, self.subsample_scale)
         y_range = np.arange(j, k+1, self.subsample_scale)
         # print("IN GENCOORDINATES, THE XRANGE IS ", x_range)
-        x, y = np.random.choice(x_range), np.random.choice(y_range)
         while True:
-            while (x, y) in seen:
+            x, y = np.random.choice(x_range), np.random.choice(y_range)
+            while (x, y) in self.occupied:
                 x, y = np.random.choice(x_range), np.random.choice(y_range)
-            seen.add((x, y))
+            self.occupied.add((x, y))
             yield (x, y)
         return
 
@@ -172,8 +171,6 @@ class DistopiaEnvironment(Environment):
     def reset(self, initial=None, n_districts=8, max_blocks_per_district=5):
         '''Initialize the state randomly.
         '''
-        #Generator must be reset bc environment is reset at every episode
-        self.coord_generator = self.gencoordinates(self.x_min, self.x_max, self.y_min, self.y_max)
         if initial is not None:
             self.state = initial
             self.occupied = set(itertools.chain(*self.state.values()))
@@ -185,8 +182,20 @@ class DistopiaEnvironment(Environment):
                 self.occupied = set()
                 self.state = {}
                 # Place one block for each district, randomly
+                # x_range = np.arange(self.x_min, self.x_max+1, self.subsample_scale)
+                # y_range = np.arange(self.y_min, self.y_max+1, self.subsample_scale)
+                # init_occupied = set()
+                # counter = n_districts
+                # while counter > 0:
+                #     x, y = np.random.choice(x_range), np.random.choice(y_range)
+                #     if (x, y) not in init_occupied:
+                #         init_occupied.add((x,y))
+                #         self.state[n_districts - counter] = [(x,y)]
+                #         counter = counter - 1
+
                 for i in range(n_districts):
                     self.state[i] = [next(self.coord_generator)]
+
                 initial_blocks = [p[0] for p in self.state.values()]
 
                 # add more blocks...
@@ -363,7 +372,7 @@ class DistopiaEnvironment(Environment):
         if not self.check_legal_districts(districts):
             return None
         return self.extract_metrics(self.metrics,state_metrics,districts)
-    
+
     def get_district_metrics(self, design, exc_logger=None):
         """returns the metrics associated with each district"""
         try:

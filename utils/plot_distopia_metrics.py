@@ -109,9 +109,11 @@ def plot_rewards(data_dir, given_episodes, given_ep_length):
         with open(f, 'rb') as pklfile:
             r_list = pkl.load(pklfile)
             r_avg = []
+            new_avg = []
             cutter = 0
             while cutter <= given_episodes * given_ep_length:
                 r_avg.append(sum(r_list[cutter:cutter+given_ep_length])/given_ep_length)
+                # new_avg.append(sum(r_list[cutter+given_ep_length-10:cutter+given_ep_length])/10 - sum(r_list[cutter:cutter+10])/10)
                 cutter=cutter+given_ep_length
             plt.clf()
             plt.ylim(-3.0, 3.0)
