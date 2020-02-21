@@ -1,0 +1,19 @@
+agent: agents.DDQNAgent.DDQNAgent
+agent_params:
+  num_metrics: 3
+  tasks: [[-1,0,0]]
+  num_episodes: 100
+  episode_length: 1000
+  epsilon: 0.9
+  min_eps: 0.1
+  discount_rate: 0.9
+  reset: True
+environment: environments.distopia_environment.DistopiaEnvironment
+environment_params:
+  env_name: distopia
+  metrics: [population, pvi, compactness]
+  standardization_file: resources/stripped_normalization.pkl
+  subsample_scale: 1
+experiment_description: SARSA agent, Distopia Environment
+experiment_type: experiment_types.agent_experiment.AgentExperiment
+n_workers: 7
