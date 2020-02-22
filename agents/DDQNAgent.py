@@ -64,7 +64,6 @@ class DDQNAgent(Agent):
         print("num episodes: " + str(self.num_episodes))
         print("episode length: " + str(self.episode_length))
         print("discount_rate: "  + str(self.discount_rate))
-        print("buffer_size: "  + str(self.dequeue_size))
 
     def set_task(self, task):
         assert len(task) == self.num_metrics
@@ -124,8 +123,8 @@ class DDQNAgent(Agent):
             0: left
             1: right
             2: up
-            3: down"""
-        """Returns a LEGAL action (following epsilon greedy policy)"""
+            3: down
+        Returns a LEGAL action (following epsilon greedy policy)"""
         done = False
         predict_q = self.model.predict(state.reshape(1, 40))[0]
         while done==False:
@@ -163,7 +162,7 @@ class DDQNAgent(Agent):
         return new_state, reward
 
 
-    def replay(self, environment):
+    def replay(self):
         """Gets a random batch from memory and replay"""
         batch = self.memory.sample(self.batch_size)
         old_states = []
@@ -180,12 +179,17 @@ class DDQNAgent(Agent):
             old_state_preds.append(old_state_pred.reshape(1, 32))
         old_states = np.array(old_states).reshape(self.batch_size, 40)
         old_state_preds = np.array(old_state_preds).reshape(self.batch_size, 32)
-        self.model.fit(np.array(old_states), np.array(old_state_preds), batch_size=self.batch_size, epochs=1, use_multiprocessing=True, verbose=0)
+        self.model.fit(old_states, old_state_preds, batch_size=self.batch_size, epochs=1, use_multiprocessing=True, verbose=0)
 
     def update_target(self):
         model_weights = self.model.get_weights()
         target_weights = self.target_model.get_weights()
-        target_weights = model_weights*self.tau + (1-self.tau)*target_weights
+        # print("TAU IS: ", self.tau)
+        # print("WEIGHTS ARE: ", model_weights)
+        # print("shape of weights: ", model_weights.shape)
+        model_updated = [self.tau*x for x in model_weights]
+        target_updated = [(1-self.tau)*x for x in target_weights]
+        target_weights = model_updated+target_updated
         self.target_model.set_weights(target_weights)
 
 
@@ -195,12 +199,31 @@ class DDQNAgent(Agent):
 
 
     def evaluate_q(self, rand_states, environment):
-        max_vals=[]
+        max_qs=[]
+        rewards = []
         for rand_state in rand_states:
             actual_state = self.get_state(environment, rand_state)
-            predict_q = self.model.predict(actual_state.reshape(1,40))[0]
-            max_vals.append(np.max(predict_q))
-        return (sum(max_vals)/len(max_vals))
+            done = False
+            predict_q = self.model.predict(actual_state.reshape(1, 40))[0]
+            while done==False:
+                best_action = np.argmax(predict_q)
+                block_num = best_action//4
+                direction = best_action%4
+                new_design = environment.make_move(block_num, direction)
+                if new_design ==-1:
+                    predict_q[best_action] = np.NINF #Guarantees won't be picked again
+                else:
+                    new_metric = environment.get_metrics(new_design)
+                    if new_metric is None:
+                        predict_q[best_action] = np.NINF #Guarantees won't be picked again
+                    else:
+                        reward = environment.get_reward(new_metric, self.reward_weights)
+                        max_qs.append(predict_q[best_action])
+                        rewards.append(reward)
+                        done=True
+        num_samples = len(max_qs)
+        return sum(rewards)/num_samples, sum(max_qs)/num_samples
+
 
     def train(self, environment, status=None, initial=None):
         train_reward_log = []
@@ -208,12 +231,15 @@ class DDQNAgent(Agent):
         train_design_log = []
         random_states = []
         q_progress = []
+        reward_progress = []
 
         for i in range(50):
             environment.reset(None, max_blocks_per_district = 1)
             rand_design = environment.state
             random_states.append(rand_design)
-        q_progress.append(self.evaluate_q(random_states, environment))
+        eval_rewards, eval_qs = self.evaluate_q(random_states, environment)
+        reward_progress.append(eval_rewards)
+        q_progress.append(eval_qs)
 
         # environment.reset(None, max_blocks_per_district = 1)
         # init_design = environment.state
@@ -240,12 +266,17 @@ class DDQNAgent(Agent):
                     self.update_target() # update target network every 100 steps
                 if status is not None:
                     status.put('next')
-            q_progress.append(self.evaluate_q(random_states, environment))
+            eval_rewards, eval_qs = self.evaluate_q(random_states, environment)
+            reward_progress.append(eval_rewards)
+            q_progress.append(eval_qs)
         # After training is done, save the model
         model_name = "trained_dqn_"+str(self.num_episodes)+"_"+str(self.episode_length)
         self.save_model(model_name)
         plt.plot(q_progress)
-        plt.savefig(os.path.join(os.getcwd(),"{}.png".format("agent_dqn_q_progress")))
+        plt.savefig(os.path.join(os.getcwd(),"{}.png".format("agent_ddqn_q_progress")))
+        plt.close()
+        plt.plot(reward_progress)
+        plt.savefig(os.path.join(os.getcwd(),"{}.png".format("agent_ddqn_reward_progress")))
         return train_design_log, train_metric_log, train_reward_log
 
     def evaluate_model(self, environment, num_steps, num_episodes, initial=None):

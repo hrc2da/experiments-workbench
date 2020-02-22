@@ -174,12 +174,31 @@ class DQNAgent(Agent):
 
 
     def evaluate_q(self, rand_states, environment):
-        max_vals=[]
+        max_qs=[]
+        rewards = []
         for rand_state in rand_states:
             actual_state = self.get_state(environment, rand_state)
-            predict_q = self.model.predict(actual_state.reshape(1,40))[0]
-            max_vals.append(np.max(predict_q))
-        return (sum(max_vals)/len(max_vals))
+            done = False
+            predict_q = self.model.predict(actual_state.reshape(1, 40))[0]
+            while done==False:
+                best_action = np.argmax(predict_q)
+                block_num = best_action//4
+                direction = best_action%4
+                new_design = environment.make_move(block_num, direction)
+                if new_design ==-1:
+                    predict_q[best_action] = np.NINF #Guarantees won't be picked again
+                else:
+                    new_metric = environment.get_metrics(new_design)
+                    if new_metric is None:
+                        predict_q[best_action] = np.NINF #Guarantees won't be picked again
+                    else:
+                        reward = environment.get_reward(new_metric, self.reward_weights)
+                        max_qs.append(predict_q[best_action])
+                        rewards.append(reward)
+                        done=True
+        num_samples = len(max_qs)
+        return sum(rewards)/num_samples, sum(max_qs)/num_samples
+
 
     def train(self, environment, status=None, initial=None):
         train_reward_log = []
@@ -187,12 +206,15 @@ class DQNAgent(Agent):
         train_design_log = []
         random_states = []
         q_progress = []
+        reward_progress = []
 
         for i in range(50):
             environment.reset(None, max_blocks_per_district = 1)
             rand_design = environment.state
             random_states.append(rand_design)
-        q_progress.append(self.evaluate_q(random_states, environment))
+        eval_rewards, eval_qs = self.evaluate_q(random_states, environment)
+        q_progress.append(eval_qs)
+        reward_progress.append(eval_rewards)
 
         # environment.reset(None, max_blocks_per_district = 1)
         # init_design = environment.state
@@ -217,12 +239,17 @@ class DQNAgent(Agent):
                     self.replay()  # do memory replay after every 10 steps
                 if status is not None:
                     status.put('next')
-            q_progress.append(self.evaluate_q(random_states, environment))
+            eval_rewards, eval_qs = self.evaluate_q(random_states, environment)
+            reward_progress.append(eval_rewards)
+            q_progress.append(eval_qs)
         # After training is done, save the model
         model_name = "trained_dqn_"+str(self.num_episodes)+"_"+str(self.episode_length)
         self.save_model(model_name)
         plt.plot(q_progress)
         plt.savefig(os.path.join(os.getcwd(),"{}.png".format("agent_dqn_q_progress")))
+        plt.close()
+        plt.plot(reward_progress)
+        plt.savefig(os.path.join(os.getcwd(),"{}.png".format("agent_dqn_reward_progress")))
         return train_design_log, train_metric_log, train_reward_log
 
     def evaluate_model(self, environment, num_steps, num_episodes, initial=None):
