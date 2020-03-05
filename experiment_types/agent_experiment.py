@@ -71,7 +71,7 @@ class AgentExperiment(Experiment):
         progress_queue = Manager().Queue()
         progress_thread = Thread(target=self.progress_monitor,args=(n_samples,progress_queue))
         progress_thread.start()
-       self.progress_monitor(n_samples, progress_queue)
+#        self.progress_monitor(n_samples, progress_queue)
         agent_runners = []
         for task in tasks:
             agent_runners.append((specs,task,progress_queue))
