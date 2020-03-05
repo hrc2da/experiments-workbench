@@ -10,7 +10,9 @@ from keras.optimizers import Adam
 import random
 from matplotlib import pyplot as plt
 import os
-from utils import ringbuffer
+#from utils import ringbuffer
+from collections import deque
+import concurrent.futures
 
 class DQNAgentMask(Agent):
     def __init__(self):
@@ -57,7 +59,7 @@ class DQNAgentMask(Agent):
             self.step_size = specs_dict['step_size']
         if 'buffer_size' in specs_dict:
             self.dequeue_size = specs_dict['buffer_size']
-        self.memory = ringbuffer.RingBuffer(self.memory_size)
+        self.memory = deque(maxlen=self.memory_size)
         self.n_steps = self.num_episodes * self.episode_length
         print("num episodes: " + str(self.num_episodes))
         print("episode length: " + str(self.episode_length))
@@ -104,6 +106,7 @@ class DQNAgentMask(Agent):
 
         self.model = Model(inputs = [state_input, actions_input], outputs = out)
         self.model.compile(loss='mse', optimizer=self.optimizer)
+        self.model._make_train_function() #ESSENTIAL FOR MULTITHREADING TO WORK
 
     def save_model(self, filename):
         with open(filename+".yaml", 'w') as yaml_file:
@@ -171,7 +174,7 @@ class DQNAgentMask(Agent):
 
     def replay(self):
         #Sample from memory, isolate into different columns
-        batch = self.memory.sample(self.batch_size)
+        batch = random.sample(self.memory, self.batch_size)
         old_states = [y[0] for y in batch]
         actions = [y[1] for y in batch]
         one_hot_actions = [[0]* self.nb_actions for y in batch]
@@ -185,7 +188,7 @@ class DQNAgentMask(Agent):
         max_q_next_states = np.max(next_states_q_vals,axis=1)
         real_q_vals = rewards + max_q_next_states*self.discount_rate
 
-        self.model.fit([old_states,one_hot_actions], one_hot_actions * real_q_vals[:,None], use_multiprocessing=True, verbose=0)
+        self.model.fit([old_states,one_hot_actions], one_hot_actions * real_q_vals[:,None], use_multiprocessing=False, verbose=0)
 
 
 
@@ -203,49 +206,50 @@ class DQNAgentMask(Agent):
             max_vals.append(np.max(predict_q))
         return (sum(max_vals)/len(max_vals))
 
-    def train(self, environment, status=None, initial=None):
+    def train(self, environment, status=None, initial=None, specs=None, num_threads = 1):
 
         train_reward_log = []
         train_metric_log = []
         train_design_log = []
         random_states = []
         q_progress = []
-        # init_design={}
-        # init_design[0] = [(540,570)]
-        # init_design[1] = [(740,770)]
-        # init_design[2] = [(770,190)]
-        # init_design[3] = [(310,460)]
-        # init_design[4] = [(800,220)]
-        # init_design[5] = [(680,750)]
-        # init_design[6] = [(490,560)]
-        # init_design[7] = [(470,350)]
+        thread_env=[None] * num_threads #Create lists for all environments
+
+        #First environment is the one already given to us
+        thread_env[0] = environment
+        for i in range(num_threads-1):
+            environment = specs['environment']()
+            environment.set_params(specs['environment_params'])
+            if 'random_seed' in specs:
+                environment.seed(specs['random_seed'])
+            thread_env[i+1] = environment
+
+        #Create initial set of 50 states to judge q-values
         for i in range(50):
             environment.reset(None, max_blocks_per_district = 1)
             rand_design = environment.state
             random_states.append(rand_design)
         q_progress.append(self.evaluate_q(random_states, environment))
 
-        # environment.reset(None, max_blocks_per_district = 1)
-        # init_design = environment.state
-        old_reward = 0
+
         for i in range(self.num_episodes):
-            # reset the block positions after every episode
-            environment.reset(None, max_blocks_per_district = 1)
-            init_design = environment.state
-            curr_state = self.get_state(environment, init_design)
-            print(init_design)
-            for j in range(self.episode_length):
-                action, next_state, metric, reward = self.get_action(curr_state, environment)
-                train_reward_log.append(reward)
-                train_design_log.append(environment.state)
-                train_metric_log.append(metric)
-                # add this experience to memory
-                self.remember(curr_state, action, reward-old_reward, next_state)
-                old_reward = reward
-                if j%5==0 and len(self.memory) >= self.batch_size:
-                    self.replay()  # do memory replay after every 5 steps
-                if status is not None:
-                    status.put('next')
+            #Make each thread run one episode seperately, combine logs
+            with concurrent.futures.ThreadPoolExecutor(max_workers = num_threads) as executor:
+                episodes = [executor.submit(self.train_thread, thread_env[j], status) for j in range(num_threads)]
+                for episode in concurrent.futures.as_completed(episodes):
+                    try:
+                        thread_reward, thread_metric, thread_design = episode.result()
+                        for reward in thread_reward:
+                            train_reward_log.append(reward)
+                        for metric in thread_metric:
+                            train_metric_log.append(metric)
+                        for design in thread_design:
+                            train_design_log.append(design)
+                    except Exception as exc:
+                        print("ERROR...exiting")
+                        exit(0)
+
+            print(len(train_reward_log))
             q_progress.append(self.evaluate_q(random_states, environment))
 
         # After training is done, save the model
@@ -254,6 +258,32 @@ class DQNAgentMask(Agent):
         plt.plot(q_progress)
         plt.savefig(os.path.join(os.getcwd(),"{}.png".format("agent_dqn_mask_q_progress")))
         return train_design_log, train_metric_log, train_reward_log
+
+
+    def train_thread(self, environment, status):
+        #The function that each thread runs (one episode of training)
+        reward_log = []
+        design_log = []
+        metric_log = []
+
+        environment.reset(None, max_blocks_per_district = 1)
+        init_design = environment.state
+        curr_state = self.get_state(environment, init_design)
+        print(init_design)
+        old_reward = 0
+        for j in range(self.episode_length):
+            action, next_state, metric, reward = self.get_action(curr_state, environment)
+            reward_log.append(reward)
+            design_log.append(environment.state)
+            metric_log.append(metric)
+            # add this experience to memory
+            self.remember(curr_state, action, reward-old_reward, next_state)
+            old_reward = reward
+            if j%5==0 and len(self.memory) >= self.batch_size:
+                self.replay()  # do memory replay after every 5 steps
+            if status is not None:
+                status.put('next')
+        return reward_log, metric_log, design_log
 
     def evaluate_model(self, environment, num_steps, num_episodes, initial=None):
         """Use the currently trained model to play distopia from a random
@@ -287,10 +317,10 @@ class DQNAgentMask(Agent):
         plt.savefig(os.path.join(os.getcwd(),"{}.png".format("agent_dqn_mask_eval_reward")))
 
 
-    def run(self, environment, status=None, initial=None):
+    def run(self, environment, specs, status=None, initial=None):
         # FIrst ensure that there are enough experiences in memory to sample from
 #        environment.reset(initial, max_blocks_per_district = 1)
-        train_design_log, train_metric_log, train_reward_log = self.train(environment, status, initial)
+        train_design_log, train_metric_log, train_reward_log = self.train(environment, status, initial, specs, 4)
         print("Training done..Evaluating: ")
 #        self.evaluate_model(environment, 100, 100, None)
         return train_design_log, train_metric_log, train_reward_log, self.num_episodes
