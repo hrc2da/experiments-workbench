@@ -69,16 +69,16 @@ class AgentExperiment(Experiment):
             tasks = [specs['agent_params']['task']]
         n_samples = len(tasks)*specs['agent_params']['num_episodes']*specs['agent_params']['episode_length']
         progress_queue = Manager().Queue()
-        # progress_thread = Thread(target=self.progress_monitor,args=(n_samples,progress_queue))
-        # progress_thread.start()
-#        self.progress_monitor(n_samples, progress_queue)
-        # agent_runners = []
-        # for task in tasks:
-        #     agent_runners.append((specs,task,progress_queue))
-        #
-        # with Pool(n_workers) as pool:
-        #     results = pool.starmap(run_agent, agent_runners)
-        results = [run_agent(specs,tasks[0], progress_queue)]
+        progress_thread = Thread(target=self.progress_monitor,args=(n_samples,progress_queue))
+        progress_thread.start()
+       self.progress_monitor(n_samples, progress_queue)
+        agent_runners = []
+        for task in tasks:
+            agent_runners.append((specs,task,progress_queue))
+
+        with Pool(n_workers) as pool:
+            results = pool.starmap(run_agent, agent_runners)
+#        results = [run_agent(specs,tasks[0], progress_queue)]
         curr_time = datetime.datetime.now().strftime('%m_%d_%H_%M_%S')
         file_name = curr_time + '.json'
         logpath = specs['logpath']
