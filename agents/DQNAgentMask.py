@@ -13,6 +13,7 @@ import os
 #from utils import ringbuffer
 from collections import deque
 import concurrent.futures
+import multiprocessing
 
 class DQNAgentMask(Agent):
     def __init__(self):
@@ -234,21 +235,26 @@ class DQNAgentMask(Agent):
 
         for i in range(self.num_episodes):
             #Make each thread run one episode seperately, combine logs
-            with concurrent.futures.ThreadPoolExecutor(max_workers = num_threads) as executor:
-                episodes = [executor.submit(self.train_thread, thread_env[j], status) for j in range(num_threads)]
-                for episode in concurrent.futures.as_completed(episodes):
-                    try:
-                        thread_reward, thread_metric, thread_design = episode.result()
-                        for reward in thread_reward:
-                            train_reward_log.append(reward)
-                        for metric in thread_metric:
-                            train_metric_log.append(metric)
-                        for design in thread_design:
-                            train_design_log.append(design)
-                    except Exception as exc:
-                        print("ERROR...exiting")
-                        exit(0)
-
+            # with concurrent.futures.ProcessPoolExecutor(max_workers = num_threads) as executor:
+            #     episodes = [executor.map(self.train_thread, thread_env[j], status) for j in range(num_threads)]
+            #     for episode in concurrent.futures.as_completed(episodes):
+            #         try:
+            #             thread_reward, thread_metric, thread_design = episode.result()
+            #             for reward in thread_reward:
+            #                 train_reward_log.append(reward)
+            #             for metric in thread_metric:
+            #                 train_metric_log.append(metric)
+            #             for design in thread_design:
+            #                 train_design_log.append(design)
+            #         except Exception as exc:
+            #             print("ERROR...exiting")
+            #             exit(0)
+            # thread_args = []
+            # for j in range(num_threads):
+            #     thread_args.append((thread_env[j], status))
+            with multiprocessing.Pool(processes = num_threads) as pool:
+                results = pool.map(self.train_thread, [thread_env[j] for j in range(num_threads)])
+            print(results)
             print(len(train_reward_log))
             q_progress.append(self.evaluate_q(random_states, environment))
 
@@ -260,7 +266,7 @@ class DQNAgentMask(Agent):
         return train_design_log, train_metric_log, train_reward_log
 
 
-    def train_thread(self, environment, status):
+    def train_thread(self, environment):
         #The function that each thread runs (one episode of training)
         reward_log = []
         design_log = []
@@ -281,8 +287,8 @@ class DQNAgentMask(Agent):
             old_reward = reward
             if j%5==0 and len(self.memory) >= self.batch_size:
                 self.replay()  # do memory replay after every 5 steps
-            if status is not None:
-                status.put('next')
+            # if status is not None:
+            #     status.put('next')
         return reward_log, metric_log, design_log
 
     def evaluate_model(self, environment, num_steps, num_episodes, initial=None):
