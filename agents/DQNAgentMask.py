@@ -123,7 +123,7 @@ class DQNAgentMask(Agent):
         """Returns a LEGAL action (following epsilon greedy policy)"""
         done = False
         all_actions_mask = np.ones((32,))
-        predict_q = self.model.predict([state.reshape(1,40), all_actions_mask.reshape(1,32)])[0]
+        predict_q = self.model.predict([state.reshape(1,40), all_actions_mask.reshape(1,32)], use_multiprocessing=False)[0]
         while done==False:
             num = random.random()
             if self.eps<self.min_eps:
@@ -185,7 +185,7 @@ class DQNAgentMask(Agent):
             old_states[i] =  old_states[i].reshape(40,)
             next_states[i] = next_states[i].reshape(40,)
             one_hot_actions[i][actions[i]] = 1
-        next_states_q_vals = self.model.predict([next_states,np.ones((self.batch_size, self.nb_actions))])
+        next_states_q_vals = self.model.predict([next_states,np.ones((self.batch_size, self.nb_actions))], use_multiprocessing=False)
         max_q_next_states = np.max(next_states_q_vals,axis=1)
         real_q_vals = rewards + max_q_next_states*self.discount_rate
 
@@ -254,6 +254,11 @@ class DQNAgentMask(Agent):
             #     thread_args.append((thread_env[j], status))
             with multiprocessing.Pool(processes = num_threads) as pool:
                 results = pool.map(self.train_thread, [thread_env[j] for j in range(num_threads)])
+            # for j in range(num_threads):
+            #     p = multiprocessing.Process(target = self.train_thread, args = (thread_env[j],))
+            #     p.start()
+            #     p.join()
+
             print(results)
             print(len(train_reward_log))
             q_progress.append(self.evaluate_q(random_states, environment))
