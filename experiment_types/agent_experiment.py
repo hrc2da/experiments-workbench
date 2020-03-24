@@ -24,7 +24,7 @@ def run_agent(specs,task,progress_queue):
     if 'random_seed' in specs:
         environment.seed(specs['random_seed'])
         agent.seed(specs['random_seed'])
-    design, metric, reward, episodes = agent.run(environment, specs, status=progress_queue)
+    design, metric, reward, episodes = agent.run(environment, status=progress_queue)
     this_ep={}
     ep_counter=1
     this_ep['episode_no'] = ep_counter

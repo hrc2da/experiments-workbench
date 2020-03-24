@@ -286,7 +286,7 @@ class DDQNAgent(Agent):
         print("Evaluating on seed 43")
         environment.seed(43)
 
-        filename = "trained_dqn_"+str(20)+"_"+str(1000)
+        filename = "trained_dqn_"+str(9600)+"_"+str(100)
         with open(filename + '.yaml', 'r') as f:
             self.model = model_from_yaml(f.read())
         self.model.load_weights(filename +'.h5')
@@ -308,7 +308,7 @@ class DDQNAgent(Agent):
             final_reward.append(sum(rewards_log)/len(rewards_log))
         plt.ylim(-3.0,3.0)
         plt.plot(final_reward)
-        print("AVG REWARD NO MASK: ")
+        print("AVG REWARD MASK: ")
         print(sum(final_reward)/len(final_reward))
         plt.savefig(os.path.join(os.getcwd(),"{}.png".format("agent_dqn_nomask_eval_reward")))
 
@@ -316,7 +316,7 @@ class DDQNAgent(Agent):
     def run(self, environment, status=None, initial=None):
         # FIrst ensure that there are enough experiences in memory to sample from
 #        environment.reset(initial, max_blocks_per_district = 1)
-        train_design_log, train_metric_log, train_reward_log = self.train(environment, status, initial)
+#        train_design_log, train_metric_log, train_reward_log = self.train(environment, status, initial)
         print("Training done..Evaluating: ")
-#        self.evaluate_model(environment, 5, 100, None)
-        return train_design_log, train_metric_log, train_reward_log, self.num_episodes
+        self.evaluate_model(environment, 100, 100, None)
+#        return train_design_log, train_metric_log, train_reward_log, self.num_episodes

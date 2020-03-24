@@ -4,6 +4,7 @@ from distopia.mapping._voronoi import ColliderException
 from random import randint
 import numpy as np
 from tensorflow import keras
+from keras.losses import huber_loss
 from keras.models import Sequential, model_from_yaml, Model
 from keras.layers import Dense, Activation, Flatten, Input, Multiply
 from keras.optimizers import Adam
@@ -103,7 +104,13 @@ class DQNAgentMask(Agent):
         out = Multiply()([x3, actions_input])
 
         self.model = Model(inputs = [state_input, actions_input], outputs = out)
-        self.model.compile(loss='mse', optimizer=self.optimizer)
+        self.model.compile(loss=huber_loss_wrapper(delta=1.5), optimizer=self.optimizer)
+
+    # Define the Huber loss so that it can be used with Keras
+    def huber_loss_wrapper(**huber_loss_kwargs):
+        def huber_loss_wrapped_function(y_true, y_pred):
+            return huber_loss(y_true, y_pred, **huber_loss_kwargs)
+        return huber_loss_wrapped_function
 
     def save_model(self, filename):
         with open(filename+".yaml", 'w') as yaml_file:
