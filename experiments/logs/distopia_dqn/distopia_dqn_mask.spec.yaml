@@ -2,7 +2,7 @@ agent: agents.DQNAgentMask.DQNAgentMask
 agent_params:
   num_metrics: 3
   tasks: [[-1,0,0]]
-  num_episodes: 9600
+  num_episodes: 200
   episode_length: 100
   epsilon: 0.99
   min_eps: 0.1
