@@ -89,7 +89,7 @@ class DistopiaEnvironment(Environment):
         self.pop_mean = pop_mean
         self.pop_std = pop_std
         self.occupied = set()
-        self.coord_generator = self.gencoordinates(self.x_min, self.x_max, self.y_min, self.y_max)
+#        self.coord_generator = self.gencoordinates(self.x_min, self.x_max, self.y_min, self.y_max)
         self.evaluator = VoronoiAgent()
         self.evaluator.load_data()
         self.state = {}
@@ -134,27 +134,27 @@ class DistopiaEnvironment(Environment):
             print("subsample scale environment: " + str(self.subsample_scale))
 
 
-    def gencoordinates(self, m, n, j, k):
-        '''Generate random coordinates in range x: (m,n) y:(j,k)
-        instantiate generator and call next(g)
-
-        based on:
-        https://stackoverflow.com/questions/30890434/how-to-generate-random-pairs-of-
-        numbers-in-python-including-pairs-with-one-entr
-
-        MODIFIED: To handle the case where the map is subsampled to reduce state space
-        for the SARSA agent
-        '''
-        x_range = np.arange(m, n+1, self.subsample_scale)
-        y_range = np.arange(j, k+1, self.subsample_scale)
-        # print("IN GENCOORDINATES, THE XRANGE IS ", x_range)
-        while True:
-            x, y = np.random.choice(x_range), np.random.choice(y_range)
-            while (x, y) in self.occupied:
-                x, y = np.random.choice(x_range), np.random.choice(y_range)
-            self.occupied.add((x, y))
-            yield (x, y)
-        return
+    # def gencoordinates(self, m, n, j, k):
+    #     '''Generate random coordinates in range x: (m,n) y:(j,k)
+    #     instantiate generator and call next(g)
+    #
+    #     based on:
+    #     https://stackoverflow.com/questions/30890434/how-to-generate-random-pairs-of-
+    #     numbers-in-python-including-pairs-with-one-entr
+    #
+    #     MODIFIED: To handle the case where the map is subsampled to reduce state space
+    #     for the SARSA agent
+    #     '''
+    #     x_range = np.arange(m, n+1, self.subsample_scale)
+    #     y_range = np.arange(j, k+1, self.subsample_scale)
+    #     # print("IN GENCOORDINATES, THE XRANGE IS ", x_range)
+    #     while True:
+    #         x, y = np.random.choice(x_range), np.random.choice(y_range)
+    #         while (x, y) in self.occupied:
+    #             x, y = np.random.choice(x_range), np.random.choice(y_range)
+    #         self.occupied.add((x, y))
+    #         yield (x, y)
+    #     return
 
     def set_metrics(self, metrics):
         '''Define an array of metric names
@@ -182,19 +182,19 @@ class DistopiaEnvironment(Environment):
                 self.occupied = set()
                 self.state = {}
                 # Place one block for each district, randomly
-                # x_range = np.arange(self.x_min, self.x_max+1, self.subsample_scale)
-                # y_range = np.arange(self.y_min, self.y_max+1, self.subsample_scale)
-                # init_occupied = set()
-                # counter = n_districts
-                # while counter > 0:
-                #     x, y = np.random.choice(x_range), np.random.choice(y_range)
-                #     if (x, y) not in init_occupied:
-                #         init_occupied.add((x,y))
-                #         self.state[n_districts - counter] = [(x,y)]
-                #         counter = counter - 1
+                x_range = np.arange(self.x_min, self.x_max+1, self.subsample_scale)
+                y_range = np.arange(self.y_min, self.y_max+1, self.subsample_scale)
+                init_occupied = set()
+                counter = n_districts
+                while counter > 0:
+                    x, y = np.random.choice(x_range), np.random.choice(y_range)
+                    if (x, y) not in init_occupied:
+                        init_occupied.add((x,y))
+                        self.state[n_districts - counter] = [(x,y)]
+                        counter = counter - 1
 
-                for i in range(n_districts):
-                    self.state[i] = [next(self.coord_generator)]
+                # for i in range(n_districts):
+                #     self.state[i] = [next(self.coord_generator)]
 
                 initial_blocks = [p[0] for p in self.state.values()]
 

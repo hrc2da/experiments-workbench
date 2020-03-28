@@ -3,14 +3,13 @@ from distopia.app.agent import VoronoiAgent
 from distopia.mapping._voronoi import ColliderException
 from random import randint
 import numpy as np
-from tensorflow import keras
-from keras.models import Sequential, model_from_yaml
-from keras.layers import Dense, Activation, Flatten
-from keras.optimizers import Adam
 import random
 from matplotlib import pyplot as plt
 import os
 from utils import ringbuffer
+import pickle
+import pathos.multiprocessing as mp
+import copy
 
 class DDQNAgent(Agent):
     def __init__(self):
@@ -18,14 +17,16 @@ class DDQNAgent(Agent):
         self.reward_weights = []
         self.nb_actions = 32
         self.nb_metrics = 3
-        self.optimizer = Adam(lr=0.001)
         self.action_space = np.arange(0, 32)
         self.batch_size = 32
         self.tau = 0.9 # soft update parameter for the target network
-        self.build_model()
-        self.build_target_model()
         self.total_pop = 0
         self.max_pvi = 246977.5
+        self.skip_steps = 1
+        self.replay_steps = 5
+        self.evaluate_q_steps = 1
+        self.target_update_steps = 100
+
 
     def set_params(self, specs_dict):
         self.num_metrics = specs_dict['num_metrics']
@@ -102,6 +103,11 @@ class DDQNAgent(Agent):
         self.model.add(Dense(self.nb_actions))
         self.model.add(Activation('linear'))
         self.model.compile(loss='mse', optimizer=self.optimizer)
+        # filename = "trained_ddqn_"+str(9600)+"_"+str(100)
+        # with open(filename + '.yaml', 'r') as f:
+        #     self.model = model_from_yaml(f.read())
+        # self.model.load_weights(filename +'.h5')
+        # self.model.compile(loss='mse', optimizer=self.optimizer)
 
     def build_target_model(self):
         self.target_model = Sequential()
@@ -112,41 +118,74 @@ class DDQNAgent(Agent):
         self.target_model.add(Dense(self.nb_actions))
         self.target_model.add(Activation('linear'))
         self.target_model.compile(loss='mse', optimizer=self.optimizer)
+        # filename = "trained_ddqn_"+str(9600)+"_"+str(100)
+        # with open(filename + '.yaml', 'r') as f:
+        #     self.target_model = model_from_yaml(f.read())
+        # self.target_model.load_weights(filename +'.h5')
+        # self.target_model.compile(loss='mse', optimizer=self.optimizer)
 
     def save_model(self, filename):
         with open(filename+".yaml", 'w') as yaml_file:
             yaml_file.write(self.model.to_yaml())
         self.model.save_weights(filename+".h5")
 
-    def get_action(self, state, environment):
+    def save_target_model(self, filename):
+        with open(filename+".yaml", 'w') as yaml_file:
+            yaml_file.write(self.target_model.to_yaml())
+        self.target_model.save_weights(filename+".h5")
+
+    def save_buffer(self, filename):
+        with open(filename+".pkl", "wb") as pkl_file:
+            pickle.dump(self.memory, pkl_file)
+
+
+    def get_action(self, state, environment, step_num, old_action):
         """In our DQN these are the direction mappings:
             0: left
             1: right
             2: up
             3: down
         Returns a LEGAL action (following epsilon greedy policy)"""
-        done = False
-        predict_q = self.model.predict(state.reshape(1, 40))[0]
-        while done==False:
-            num = random.random()
-            if self.eps<self.min_eps:
-                self.eps = self.min_eps
-            if num < self.eps:
-                best_action = np.random.choice(self.action_space)
-            else:
-                best_action = np.argmax(predict_q)
+        nn_predict = False #Bool if neural network should predict move
+        if step_num % self.skip_steps == 0 and old_action is not None:
+            best_action = old_action
             block_num = best_action//4
             direction = best_action%4
             new_design = environment.make_move(block_num, direction)
-            if new_design ==-1:
-                predict_q[best_action] = np.NINF #Guarantees won't be picked again
-            else:
+            if new_design !=-1:
                 new_metric = environment.get_metrics(new_design)
-                if new_metric is None:
+                if new_metric is not None:
+                    new_state, reward = self.take_action(environment, new_design, new_metric)
+                else:
+                    nn_predict=True
+            else:
+                nn_predict=True
+        else:
+            nn_predict=True
+
+        if nn_predict == True:
+            done = False
+            predict_q = self.model.predict(state.reshape(1, 40))[0]
+            while done==False:
+                num = random.random()
+                if self.eps<self.min_eps:
+                    self.eps = self.min_eps
+                if num < self.eps:
+                    best_action = np.random.choice(self.action_space)
+                else:
+                    best_action = np.argmax(predict_q)
+                block_num = best_action//4
+                direction = best_action%4
+                new_design = environment.make_move(block_num, direction)
+                if new_design ==-1:
                     predict_q[best_action] = np.NINF #Guarantees won't be picked again
                 else:
-                    new_state, reward = self.take_action(environment, new_design, new_metric)
-                    done=True
+                    new_metric = environment.get_metrics(new_design)
+                    if new_metric is None:
+                        predict_q[best_action] = np.NINF #Guarantees won't be picked again
+                    else:
+                        new_state, reward = self.take_action(environment, new_design, new_metric)
+                        done=True
         self.eps *= self.decay_rate
         return best_action, new_state, new_metric, reward
 
@@ -225,7 +264,14 @@ class DDQNAgent(Agent):
         return sum(rewards)/num_samples, sum(max_qs)/num_samples
 
 
-    def train(self, environment, status=None, initial=None):
+    def train(self, environment, thread_id, status=None, initial=None):
+        from tensorflow import keras
+        from keras.models import Sequential, model_from_yaml
+        from keras.layers import Dense, Activation, Flatten
+        from keras.optimizers import Adam
+        self.optimizer = Adam(lr=0.001)
+        self.build_model()
+        self.build_target_model()
         train_reward_log = []
         train_metric_log = []
         train_design_log = []
@@ -243,40 +289,49 @@ class DDQNAgent(Agent):
 
         # environment.reset(None, max_blocks_per_district = 1)
         # init_design = environment.state
-        old_reward = 0
         for i in range(self.num_episodes):
             # reset the block positions after every episode
             environment.reset(None, max_blocks_per_district = 1)
             init_design = environment.state
             print(init_design)
             curr_state = self.get_state(environment, init_design)
+            old_action = None #keeps track of last action
+            old_reward = 0
             for j in range(self.episode_length):
                 # action, next_state, metric, reward = self.get_action(curr_state,environment)
                 # train_metric_log.append(metric)
-                action, next_state, metric, reward = self.get_action(curr_state, environment)
+                action, next_state, metric, reward = self.get_action(curr_state, environment, j, None)
                 train_reward_log.append(reward)
                 train_design_log.append(environment.state)
                 train_metric_log.append(metric)
                 # add this experience to memappendory
                 self.remember(curr_state, action, reward-old_reward, next_state)
                 old_reward = reward
-                if j%5==0 and len(self.memory) >= self.batch_size:
+                old_action = action
+                if j%self.replay_steps==0 and len(self.memory) >= self.batch_size:
                     self.replay()  # do memory replay after every 10 steps
-                if j%100==0:
+                if j%self.target_update_steps==0:
                     self.update_target() # update target network every 100 steps
                 if status is not None:
                     status.put('next')
-            eval_rewards, eval_qs = self.evaluate_q(random_states, environment)
-            reward_progress.append(eval_rewards)
-            q_progress.append(eval_qs)
+            if i % self.evaluate_q_steps == 0:
+                eval_rewards, eval_qs = self.evaluate_q(random_states, environment)
+                reward_progress.append(eval_rewards)
+                q_progress.append(eval_qs)
+
+
         # After training is done, save the model
-        model_name = "trained_dqn_"+str(self.num_episodes)+"_"+str(self.episode_length)
+        model_name = "trained_ddqn_"+str(self.num_episodes*2)+"_"+str(self.episode_length) + "_" + str(thread_id)
+        target_name = "trained_ddqn_"+str(self.num_episodes*2)+"_"+str(self.episode_length) + "_target" + "_" + str(thread_id)
+        buffer_name = "trained_ddqn_"+str(self.num_episodes*2)+"_"+str(self.episode_length) + "_buffer" + "_" + str(thread_id)
         self.save_model(model_name)
+        self.save_target_model(target_name)
+        self.save_buffer(buffer_name)
         plt.plot(q_progress)
-        plt.savefig(os.path.join(os.getcwd(),"{}.png".format("agent_ddqn_q_progress")))
+        plt.savefig(os.path.join(os.getcwd(),"{}.png".format("agent_ddqn_q_progress_" + str(thread_id))))
         plt.close()
         plt.plot(reward_progress)
-        plt.savefig(os.path.join(os.getcwd(),"{}.png".format("agent_ddqn_reward_progress")))
+        plt.savefig(os.path.join(os.getcwd(),"{}.png".format("agent_ddqn_reward_progress_" + str(thread_id))))
         return train_design_log, train_metric_log, train_reward_log
 
     def evaluate_model(self, environment, num_steps, num_episodes, initial=None):
@@ -285,8 +340,8 @@ class DDQNAgent(Agent):
 
         print("Evaluating on seed 43")
         environment.seed(43)
-
-        filename = "trained_dqn_"+str(20)+"_"+str(1000)
+        self.skip_steps = 1
+        filename = "trained_ddqn_"+str(9600*2)+"_"+str(100)
         with open(filename + '.yaml', 'r') as f:
             self.model = model_from_yaml(f.read())
         self.model.load_weights(filename +'.h5')
@@ -302,21 +357,27 @@ class DDQNAgent(Agent):
             rewards_log = []
             for i in range(num_steps):
                 print("STEP: ", i)
-                _, next_state, _, reward = self.get_action(curr_state,environment)
+                _, next_state, _, reward = self.get_action(curr_state,environment,i,None)
                 rewards_log.append(reward)
                 curr_state = next_state
             final_reward.append(sum(rewards_log)/len(rewards_log))
         plt.ylim(-3.0,3.0)
         plt.plot(final_reward)
-        print("AVG REWARD NO MASK: ")
+        print("AVG REWARD MASK: ")
         print(sum(final_reward)/len(final_reward))
         plt.savefig(os.path.join(os.getcwd(),"{}.png".format("agent_dqn_nomask_eval_reward")))
 
 
-    def run(self, environment, status=None, initial=None):
+    def run(self, environment, specs, status=None, initial=None):
         # FIrst ensure that there are enough experiences in memory to sample from
-#        environment.reset(initial, max_blocks_per_district = 1)
-        train_design_log, train_metric_log, train_reward_log = self.train(environment, status, initial)
+        # environment.reset(initial, max_blocks_per_district = 1)
+        num_threads = os.cpu_count()-1
+        thread_args=[]
+        for i in range(num_threads):
+            thread_args.append((copy.copy(environment), i, status, initial))
+        with mp.Pool(processes = num_threads) as pool:
+            results = pool.map(self.train, thread_args)
+#        train_design_log, train_metric_log, train_reward_log = self.train(environment, status, initial)
         print("Training done..Evaluating: ")
-#        self.evaluate_model(environment, 5, 100, None)
-        return train_design_log, train_metric_log, train_reward_log, self.num_episodes
+#        self.evaluate_model(environment, 100, 100, None)
+#        return train_design_log, train_metric_log, train_reward_log, self.num_episodes
