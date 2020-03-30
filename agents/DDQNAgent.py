@@ -6,7 +6,8 @@ import numpy as np
 import random
 from matplotlib import pyplot as plt
 import os
-from utils import ringbuffer
+#from utils import ringbuffer
+from collections import deque
 import pickle
 import pathos.multiprocessing as mp
 import copy
@@ -60,7 +61,8 @@ class DDQNAgent(Agent):
             self.step_size = specs_dict['step_size']
         if 'buffer_size' in specs_dict:
             self.dequeue_size = specs_dict['buffer_size']
-        self.memory = ringbuffer.RingBuffer(self.memory_size)
+        self.memory = deque(maxlen=self.memory_size)
+#        self.memory = ringbuffer.RingBuffer(self.memory_size)
         self.n_steps = self.num_episodes * self.episode_length
         print("num episodes: " + str(self.num_episodes))
         print("episode length: " + str(self.episode_length))
@@ -203,7 +205,8 @@ class DDQNAgent(Agent):
 
     def replay(self):
         """Gets a random batch from memory and replay"""
-        batch = self.memory.sample(self.batch_size)
+        # batch = self.memory.sample(self.batch_size)
+        batch = random.sample(self.memory, self.batch_size)
         old_states = []
         old_state_preds = []
         for old_state, action, reward, next_state in batch:
@@ -269,6 +272,7 @@ class DDQNAgent(Agent):
         from keras.models import Sequential, model_from_yaml
         from keras.layers import Dense, Activation, Flatten
         from keras.optimizers import Adam
+
         self.optimizer = Adam(lr=0.001)
         self.build_model()
         self.build_target_model()
