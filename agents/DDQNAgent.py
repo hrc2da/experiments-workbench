@@ -343,6 +343,9 @@ class DDQNAgent(Agent):
         with open(filename + '.yaml', 'r') as f:
             self.model = model_from_yaml(f.read())
         self.model.load_weights(filename +'.h5')
+        with open(filename + '_target.yaml', 'r') as f:
+            self.target_model = model_from_yaml(f.read())
+        self.target_model.load_weights(filename +'_target.h5')
 
         final_reward=[]
         for e in range(num_episodes):
@@ -369,7 +372,7 @@ class DDQNAgent(Agent):
     def run(self, environment, status=None, initial=None):
         # FIrst ensure that there are enough experiences in memory to sample from
 #        environment.reset(initial, max_blocks_per_district = 1)
-        train_design_log, train_metric_log, train_reward_log = self.train(environment, status, initial)
+#        train_design_log, train_metric_log, train_reward_log = self.train(environment, status, initial)
         print("Training done..Evaluating: ")
-#        self.evaluate_model(environment, 100, 100, None)
+        self.evaluate_model(environment, 100, 100, None)
 #        return train_design_log, train_metric_log, train_reward_log, self.num_episodes
