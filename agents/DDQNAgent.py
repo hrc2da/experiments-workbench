@@ -11,6 +11,10 @@ from collections import deque
 import pickle
 import pathos.multiprocessing as mp
 import copy
+from tensorflow import keras
+from keras.models import Sequential, model_from_yaml
+from keras.layers import Dense, Activation, Flatten
+from keras.optimizers import Adam
 
 class DDQNAgent(Agent):
     def __init__(self):
@@ -61,7 +65,7 @@ class DDQNAgent(Agent):
             self.step_size = specs_dict['step_size']
         if 'buffer_size' in specs_dict:
             self.dequeue_size = specs_dict['buffer_size']
-        self.memory = deque(maxlen=self.memory_size)
+#        self.memory = deque(maxlen=self.memory_size)
 #        self.memory = ringbuffer.RingBuffer(self.memory_size)
         self.n_steps = self.num_episodes * self.episode_length
         print("num episodes: " + str(self.num_episodes))
@@ -96,52 +100,54 @@ class DDQNAgent(Agent):
             ret_state[i][4] = district_metrics[i][2]
         return ret_state
 
-    def build_model(self):
-        self.model = Sequential()
-        self.model.add(Dense(64, input_dim=40))
-        self.model.add(Activation('relu'))
-        self.model.add(Dense(64))
-        self.model.add(Activation('relu'))
-        self.model.add(Dense(self.nb_actions))
-        self.model.add(Activation('linear'))
-        self.model.compile(loss='mse', optimizer=self.optimizer)
+    def build_model(self, optimizer):
+
+        model = Sequential()
+        model.add(Dense(64, input_dim=40))
+        model.add(Activation('relu'))
+        model.add(Dense(64))
+        model.add(Activation('relu'))
+        model.add(Dense(self.nb_actions))
+        model.add(Activation('linear'))
+        model.compile(loss='mse', optimizer=optimizer)
+        return model
         # filename = "trained_ddqn_"+str(9600)+"_"+str(100)
         # with open(filename + '.yaml', 'r') as f:
         #     self.model = model_from_yaml(f.read())
         # self.model.load_weights(filename +'.h5')
         # self.model.compile(loss='mse', optimizer=self.optimizer)
 
-    def build_target_model(self):
-        self.target_model = Sequential()
-        self.target_model.add(Dense(64, input_dim=40))
-        self.target_model.add(Activation('relu'))
-        self.target_model.add(Dense(64))
-        self.target_model.add(Activation('relu'))
-        self.target_model.add(Dense(self.nb_actions))
-        self.target_model.add(Activation('linear'))
-        self.target_model.compile(loss='mse', optimizer=self.optimizer)
+    # def build_target_model(self):
+    #     self.target_model = Sequential()
+    #     self.target_model.add(Dense(64, input_dim=40))
+    #     self.target_model.add(Activation('relu'))
+    #     self.target_model.add(Dense(64))
+    #     self.target_model.add(Activation('relu'))
+    #     self.target_model.add(Dense(self.nb_actions))
+    #     self.target_model.add(Activation('linear'))
+    #     self.target_model.compile(loss='mse', optimizer=self.optimizer)
         # filename = "trained_ddqn_"+str(9600)+"_"+str(100)
         # with open(filename + '.yaml', 'r') as f:
         #     self.target_model = model_from_yaml(f.read())
         # self.target_model.load_weights(filename +'.h5')
         # self.target_model.compile(loss='mse', optimizer=self.optimizer)
 
-    def save_model(self, filename):
+    def save_model(self, model, filename):
         with open(filename+".yaml", 'w') as yaml_file:
-            yaml_file.write(self.model.to_yaml())
-        self.model.save_weights(filename+".h5")
+            yaml_file.write(model.to_yaml())
+        model.save_weights(filename+".h5")
+    #
+    # def save_target_model(self, filename):
+    #     with open(filename+".yaml", 'w') as yaml_file:
+    #         yaml_file.write(self.target_model.to_yaml())
+    #     self.target_model.save_weights(filename+".h5")
 
-    def save_target_model(self, filename):
-        with open(filename+".yaml", 'w') as yaml_file:
-            yaml_file.write(self.target_model.to_yaml())
-        self.target_model.save_weights(filename+".h5")
-
-    def save_buffer(self, filename):
+    def save_memory(self, memory, filename):
         with open(filename+".pkl", "wb") as pkl_file:
-            pickle.dump(self.memory, pkl_file)
+            pickle.dump(memory, pkl_file)
 
 
-    def get_action(self, state, environment, step_num, old_action):
+    def get_action(self, state, environment, model, step_num, old_action):
         """In our DQN these are the direction mappings:
             0: left
             1: right
@@ -167,7 +173,7 @@ class DDQNAgent(Agent):
 
         if nn_predict == True:
             done = False
-            predict_q = self.model.predict(state.reshape(1, 40))[0]
+            predict_q = model.predict(state.reshape(1, 40))[0]
             while done==False:
                 num = random.random()
                 if self.eps<self.min_eps:
@@ -203,50 +209,50 @@ class DDQNAgent(Agent):
         return new_state, reward
 
 
-    def replay(self):
+    def replay(self, model, target_model, memory):
         """Gets a random batch from memory and replay"""
         # batch = self.memory.sample(self.batch_size)
-        batch = random.sample(self.memory, self.batch_size)
+        batch = random.sample(memory, self.batch_size)
         old_states = []
         old_state_preds = []
         for old_state, action, reward, next_state in batch:
-            next_state_pred = self.model.predict(next_state.reshape(1, 40))[0]
+            next_state_pred = model.predict(next_state.reshape(1, 40))[0]
             best_next_action = np.argmax(next_state_pred)
-            target_pred = self.target_model.predict(next_state.reshape(1, 40))[0]
+            target_pred = target_model.predict(next_state.reshape(1, 40))[0]
             target_q = target_pred[best_next_action]
             new_q_val = target_q*self.discount_rate+reward
-            old_state_pred = self.model.predict(old_state.reshape(1, 40))[0]
+            old_state_pred = model.predict(old_state.reshape(1, 40))[0]
             old_state_pred[action] = new_q_val
             old_states.append(old_state.reshape(1, 40))
             old_state_preds.append(old_state_pred.reshape(1, 32))
         old_states = np.array(old_states).reshape(self.batch_size, 40)
         old_state_preds = np.array(old_state_preds).reshape(self.batch_size, 32)
-        self.model.fit(old_states, old_state_preds, batch_size=self.batch_size, epochs=1, use_multiprocessing=True, verbose=0)
+        model.fit(old_states, old_state_preds, batch_size=self.batch_size, epochs=1, use_multiprocessing=True, verbose=0)
 
-    def update_target(self):
-        model_weights = self.model.get_weights()
-        target_weights = self.target_model.get_weights()
+    def update_target(self, model, target_model):
+        model_weights = model.get_weights()
+        target_weights = target_model.get_weights()
         # print("TAU IS: ", self.tau)
         # print("WEIGHTS ARE: ", model_weights)
         # print("shape of weights: ", model_weights.shape)
         model_updated = [self.tau*x for x in model_weights]
         target_updated = [(1-self.tau)*x for x in target_weights]
         target_weights = model_updated+target_updated
-        self.target_model.set_weights(target_weights)
+        target_model.set_weights(target_weights)
 
 
-    def remember(self, state, action, reward, next_state):
+    def remember(self, state, action, reward, next_state, memory):
         """adds the experience into the dqn memory"""
-        self.memory.append((state, action, reward, next_state))
+        memory.append((state, action, reward, next_state))
 
 
-    def evaluate_q(self, rand_states, environment):
+    def evaluate_q(self, rand_states, environment, model):
         max_qs=[]
         rewards = []
         for rand_state in rand_states:
             actual_state = self.get_state(environment, rand_state)
             done = False
-            predict_q = self.model.predict(actual_state.reshape(1, 40))[0]
+            predict_q = model.predict(actual_state.reshape(1, 40))[0]
             while done==False:
                 best_action = np.argmax(predict_q)
                 block_num = best_action//4
@@ -268,14 +274,11 @@ class DDQNAgent(Agent):
 
 
     def train(self, environment, thread_id, status=None, initial=None):
-        from tensorflow import keras
-        from keras.models import Sequential, model_from_yaml
-        from keras.layers import Dense, Activation, Flatten
-        from keras.optimizers import Adam
 
-        self.optimizer = Adam(lr=0.001)
-        self.build_model()
-        self.build_target_model()
+        optimizer = Adam(lr=0.001)
+        model = self.build_model(optimizer)
+        target_model = self.build_model(optimizer)
+        memory = deque(maxlen=self.memory_size)
         train_reward_log = []
         train_metric_log = []
         train_design_log = []
@@ -287,7 +290,7 @@ class DDQNAgent(Agent):
             environment.reset(None, max_blocks_per_district = 1)
             rand_design = environment.state
             random_states.append(rand_design)
-        eval_rewards, eval_qs = self.evaluate_q(random_states, environment)
+        eval_rewards, eval_qs = self.evaluate_q(random_states, environment, model)
         reward_progress.append(eval_rewards)
         q_progress.append(eval_qs)
 
@@ -304,39 +307,33 @@ class DDQNAgent(Agent):
             for j in range(self.episode_length):
                 # action, next_state, metric, reward = self.get_action(curr_state,environment)
                 # train_metric_log.append(metric)
-                action, next_state, metric, reward = self.get_action(curr_state, environment, j, None)
+                action, next_state, metric, reward = self.get_action(curr_state, environment, model, j, None)
                 train_reward_log.append(reward)
                 train_design_log.append(environment.state)
                 train_metric_log.append(metric)
                 # add this experience to memappendory
-                self.remember(curr_state, action, reward-old_reward, next_state)
+                self.remember(curr_state, action, reward-old_reward, next_state, memory)
                 old_reward = reward
                 old_action = action
-                if j%self.replay_steps==0 and len(self.memory) >= self.batch_size:
-                    self.replay()  # do memory replay after every 10 steps
+                if j%self.replay_steps==0 and len(memory) >= self.batch_size:
+                    self.replay(model, target_model, memory)  # do memory replay after every 10 steps
                 if j%self.target_update_steps==0:
-                    self.update_target() # update target network every 100 steps
+                    self.update_target(model, target_model) # update target network every 100 steps
                 if status is not None:
                     status.put('next')
             if i % self.evaluate_q_steps == 0:
-                eval_rewards, eval_qs = self.evaluate_q(random_states, environment)
+                eval_rewards, eval_qs = self.evaluate_q(random_states, environment, model)
                 reward_progress.append(eval_rewards)
                 q_progress.append(eval_qs)
 
 
         # After training is done, save the model
-        model_name = "trained_ddqn_"+str(self.num_episodes*2)+"_"+str(self.episode_length) + "_" + str(thread_id)
-        target_name = "trained_ddqn_"+str(self.num_episodes*2)+"_"+str(self.episode_length) + "_target" + "_" + str(thread_id)
-        buffer_name = "trained_ddqn_"+str(self.num_episodes*2)+"_"+str(self.episode_length) + "_buffer" + "_" + str(thread_id)
-        self.save_model(model_name)
-        self.save_target_model(target_name)
-        self.save_buffer(buffer_name)
         plt.plot(q_progress)
         plt.savefig(os.path.join(os.getcwd(),"{}.png".format("agent_ddqn_q_progress_" + str(thread_id))))
         plt.close()
         plt.plot(reward_progress)
         plt.savefig(os.path.join(os.getcwd(),"{}.png".format("agent_ddqn_reward_progress_" + str(thread_id))))
-        return train_design_log, train_metric_log, train_reward_log
+        return train_design_log, train_metric_log, train_reward_log, model, target_model, memory
 
     def evaluate_model(self, environment, num_steps, num_episodes, initial=None):
         """Use the currently trained model to play distopia from a random
@@ -371,16 +368,38 @@ class DDQNAgent(Agent):
         print(sum(final_reward)/len(final_reward))
         plt.savefig(os.path.join(os.getcwd(),"{}.png".format("agent_dqn_nomask_eval_reward")))
 
+    def merge_results(self, results):
+        reward_log = []
+        metric_log = []
+        design_log = []
+        for index, result in enumerate(results):
+            design_log.extend(result[0])
+            metric_log.extend(result[1])
+            reward_log.extend(result[2])
+            cur_model = result[3]
+            cur_targetmodel = result[4]
+            memory = result[5]
+            model_name = "trained_ddqn_"+str(self.num_episodes)+"_"+str(self.episode_length) + "_" + str(index)
+            target_name = "trained_ddqn_"+str(self.num_episodes)+"_"+str(self.episode_length) + "_target" + "_" + str(index)
+            buffer_name = "trained_ddqn_"+str(self.num_episodes)+"_"+str(self.episode_length) + "_buffer" + "_" + str(index)
+            self.save_model(cur_model, model_name)
+            self.save_model(cur_targetmodel, target_name)
+            self.save_memory(memory, buffer_name)
+        return reward_log, metric_log, design_log
 
     def run(self, environment, specs, status=None, initial=None):
         # FIrst ensure that there are enough experiences in memory to sample from
         # environment.reset(initial, max_blocks_per_district = 1)
-        num_threads = os.cpu_count()-1
+        num_threads = os.cpu_count()
         thread_args=[]
         for i in range(num_threads):
             thread_args.append((copy.copy(environment), i, status, initial))
+        train_func = lambda x: self.train(*x)
         with mp.Pool(processes = num_threads) as pool:
-            results = pool.map(self.train, thread_args)
+            results = pool.map(train_func, thread_args)
+
+        reward_log, metric_log, design_log = self.merge_results(results)
+
 #        train_design_log, train_metric_log, train_reward_log = self.train(environment, status, initial)
         print("Training done..Evaluating: ")
 #        self.evaluate_model(environment, 100, 100, None)

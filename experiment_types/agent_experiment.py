@@ -2,11 +2,11 @@ from experiment_types import Experiment
 import datetime
 import os
 import json
-from multiprocessing import Pool, Manager
-from threading import Thread
-from tqdm import tqdm
+# from multiprocessing import Pool, Manager
+# from threading import Thread
+#from tqdm import tqdm
 
-def run_agent(specs,task,progress_queue):
+def run_agent(specs,task):
     # runs an agent with a set task
     log_data = {}  # init log data
     log_data['experiment_info'] = specs['experiment_description']
@@ -24,7 +24,7 @@ def run_agent(specs,task,progress_queue):
     if 'random_seed' in specs:
         environment.seed(specs['random_seed'])
         agent.seed(specs['random_seed'])
-    design, metric, reward, episodes = agent.run(environment, specs, status=progress_queue)
+    design, metric, reward, episodes = agent.run(environment, specs)
     this_ep={}
     ep_counter=1
     this_ep['episode_no'] = ep_counter
@@ -68,7 +68,7 @@ class AgentExperiment(Experiment):
         else:
             tasks = [specs['agent_params']['task']]
         n_samples = len(tasks)*specs['agent_params']['num_episodes']*specs['agent_params']['episode_length']
-        progress_queue = Manager().Queue()
+#        progress_queue = Manager().Queue()
         # progress_thread = Thread(target=self.progress_monitor,args=(n_samples,progress_queue))
         # progress_thread.start()
         # agent_runners = []
@@ -77,13 +77,13 @@ class AgentExperiment(Experiment):
         #
         # with Pool(n_workers) as pool:
         #     results = pool.starmap(run_agent, agent_runners)
-        results = [run_agent(specs,tasks[0], progress_queue)]
+        results = [run_agent(specs,tasks[0])]
         curr_time = datetime.datetime.now().strftime('%m_%d_%H_%M_%S')
         file_name = curr_time + '.json'
         logpath = specs['logpath']
         with open(os.path.join(logpath, file_name), 'w') as outfile:
             json.dump(results, outfile, default=str, indent=4)
 
-    def progress_monitor(self,n_samples,progress_queue):
-        for i in tqdm(range(n_samples)):
-            progress_queue.get()
+    # def progress_monitor(self,n_samples,progress_queue):
+    #     for i in tqdm(range(n_samples)):
+    #         progress_queue.get()
