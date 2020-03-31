@@ -27,11 +27,23 @@ class DDQNAgent(Agent):
         self.tau = 0.9 # soft update parameter for the target network
         self.total_pop = 0
         self.max_pvi = 246977.5
+        self.num_q_eval_states = 50
         self.skip_steps = 1
         self.replay_steps = 5
         self.evaluate_q_steps = 1
         self.target_update_steps = 100
+        self.decay_rate = 0.999
 
+        #All of these constants are default - their values  may be overriden
+        #when the specs YAML is read in set_params
+        self.num_episodes = 1
+        self.episode_length = 100
+        self.discount_rate = 0.9  # corresponds to gamma in the paper
+        self.eps = 0.95
+        self.min_eps = 0.1
+        self.step_size = 10 # how many pixels to move in each step
+        self.decay_rate = 0.999
+        self.dequeue_size = 10000
 
     def set_params(self, specs_dict):
         self.num_metrics = specs_dict['num_metrics']
@@ -42,15 +54,6 @@ class DDQNAgent(Agent):
             else:
                 assert len(task) == self.num_metrics
                 self.reward_weights = task
-
-        self.discount_rate = 0.9  # corresponds to gamma in the paper
-        self.eps = 0.95
-        self.min_eps = 0.1
-        self.decay_rate = 0.999
-        self.num_episodes = 1
-        self.episode_length = 100
-        self.step_size = 10 # how many pixels to move in each step
-        self.memory_size = 10000 #Size of replay buffer
         if 'num_episodes' in specs_dict:
             self.num_episodes = specs_dict['num_episodes']
         if 'episode_length' in specs_dict:
@@ -147,7 +150,7 @@ class DDQNAgent(Agent):
             pickle.dump(memory, pkl_file)
 
 
-    def get_action(self, state, environment, model, step_num, old_action):
+    def get_action(self, state, environment, models, step_num, old_action):
         """In our DQN these are the direction mappings:
             0: left
             1: right
@@ -173,7 +176,13 @@ class DDQNAgent(Agent):
 
         if nn_predict == True:
             done = False
-            predict_q = model.predict(state.reshape(1, 40))[0]
+            if len(models) == 1:
+                predict_q = models[0].predict(state.reshape(1, 40))[0]
+            else:
+                q_vals = []
+                for model in models:
+                    q_vals.append(model.predict(state.reshape(1, 40))[0])
+                predict_q = np.array([np.mean(k) for k in zip(*q_vals)])
             while done==False:
                 num = random.random()
                 if self.eps<self.min_eps:
@@ -278,7 +287,7 @@ class DDQNAgent(Agent):
         optimizer = Adam(lr=0.001)
         model = self.build_model(optimizer)
         target_model = self.build_model(optimizer)
-        memory = deque(maxlen=self.memory_size)
+        memory = deque(maxlen=self.dequeue_size)
         train_reward_log = []
         train_metric_log = []
         train_design_log = []
@@ -286,7 +295,7 @@ class DDQNAgent(Agent):
         q_progress = []
         reward_progress = []
 
-        for i in range(50):
+        for i in range(self.num_q_eval_states):
             environment.reset(None, max_blocks_per_district = 1)
             rand_design = environment.state
             random_states.append(rand_design)
@@ -300,6 +309,7 @@ class DDQNAgent(Agent):
             # reset the block positions after every episode
             environment.reset(None, max_blocks_per_district = 1)
             init_design = environment.state
+            print("EPISODE " + str(i))
             print(init_design)
             curr_state = self.get_state(environment, init_design)
             old_action = None #keeps track of last action
@@ -307,7 +317,7 @@ class DDQNAgent(Agent):
             for j in range(self.episode_length):
                 # action, next_state, metric, reward = self.get_action(curr_state,environment)
                 # train_metric_log.append(metric)
-                action, next_state, metric, reward = self.get_action(curr_state, environment, model, j, None)
+                action, next_state, metric, reward = self.get_action(curr_state, environment, [model], j, None)
                 train_reward_log.append(reward)
                 train_design_log.append(environment.state)
                 train_metric_log.append(metric)
@@ -333,19 +343,46 @@ class DDQNAgent(Agent):
         plt.close()
         plt.plot(reward_progress)
         plt.savefig(os.path.join(os.getcwd(),"{}.png".format("agent_ddqn_reward_progress_" + str(thread_id))))
-        return train_design_log, train_metric_log, train_reward_log, model, target_model, memory
 
-    def evaluate_model(self, environment, num_steps, num_episodes, initial=None):
+        model_name = "trained_ddqn_"+str(self.num_episodes)+"_"+str(self.episode_length) + "_" + str(thread_id)
+        target_name = "trained_ddqn_"+str(self.num_episodes)+"_"+str(self.episode_length) + "_target" + "_" + str(thread_id)
+        buffer_name = "trained_ddqn_"+str(self.num_episodes)+"_"+str(self.episode_length) + "_buffer" + "_" + str(thread_id)
+        self.save_model(model, model_name)
+        self.save_model(target_model, target_name)
+        self.save_memory(memory, buffer_name)
+        return train_design_log, train_metric_log, train_reward_log, model_name
+
+    def merge_results(self, results):
+        reward_log = []
+        metric_log = []
+        design_log = []
+        all_models = []
+        optimizer = Adam(lr=0.001)
+        for index, result in enumerate(results):
+            design_log.extend(result[0])
+            metric_log.extend(result[1])
+            reward_log.extend(result[2])
+            model_name = result[3]
+            with open(model_name + '.yaml', 'r') as f:
+                cur_model = model_from_yaml(f.read())
+            cur_model.load_weights(model_name +'.h5')
+            cur_model.compile(loss='mse', optimizer=optimizer)
+            all_models.append(cur_model)
+
+        return design_log, metric_log, reward_log, all_models
+
+
+    def evaluate_model(self, environment, models, num_steps, num_episodes, initial=None):
         """Use the currently trained model to play distopia from a random
             starting state for num_steps steps, plot the metrics"""
 
         print("Evaluating on seed 43")
         environment.seed(43)
         self.skip_steps = 1
-        filename = "trained_ddqn_"+str(9600*2)+"_"+str(100)
-        with open(filename + '.yaml', 'r') as f:
-            self.model = model_from_yaml(f.read())
-        self.model.load_weights(filename +'.h5')
+        # filename = "trained_ddqn_"+str(9600*2)+"_"+str(100)
+        # with open(filename + '.yaml', 'r') as f:
+        #     self.model = model_from_yaml(f.read())
+        # self.model.load_weights(filename +'.h5')
 
         final_reward=[]
         for e in range(num_episodes):
@@ -358,7 +395,7 @@ class DDQNAgent(Agent):
             rewards_log = []
             for i in range(num_steps):
                 print("STEP: ", i)
-                _, next_state, _, reward = self.get_action(curr_state,environment,i,None)
+                _, next_state, _, reward = self.get_action(curr_state,environment, models, i,None)
                 rewards_log.append(reward)
                 curr_state = next_state
             final_reward.append(sum(rewards_log)/len(rewards_log))
@@ -368,28 +405,12 @@ class DDQNAgent(Agent):
         print(sum(final_reward)/len(final_reward))
         plt.savefig(os.path.join(os.getcwd(),"{}.png".format("agent_dqn_nomask_eval_reward")))
 
-    def merge_results(self, results):
-        reward_log = []
-        metric_log = []
-        design_log = []
-        for index, result in enumerate(results):
-            design_log.extend(result[0])
-            metric_log.extend(result[1])
-            reward_log.extend(result[2])
-            cur_model = result[3]
-            cur_targetmodel = result[4]
-            memory = result[5]
-            model_name = "trained_ddqn_"+str(self.num_episodes)+"_"+str(self.episode_length) + "_" + str(index)
-            target_name = "trained_ddqn_"+str(self.num_episodes)+"_"+str(self.episode_length) + "_target" + "_" + str(index)
-            buffer_name = "trained_ddqn_"+str(self.num_episodes)+"_"+str(self.episode_length) + "_buffer" + "_" + str(index)
-            self.save_model(cur_model, model_name)
-            self.save_model(cur_targetmodel, target_name)
-            self.save_memory(memory, buffer_name)
-        return reward_log, metric_log, design_log
 
     def run(self, environment, specs, status=None, initial=None):
         # FIrst ensure that there are enough experiences in memory to sample from
         # environment.reset(initial, max_blocks_per_district = 1)
+        #train_design_log, train_metric_log, train_reward_log = self.train(environment, status, initial)
+
         num_threads = os.cpu_count()
         thread_args=[]
         for i in range(num_threads):
@@ -398,9 +419,7 @@ class DDQNAgent(Agent):
         with mp.Pool(processes = num_threads) as pool:
             results = pool.map(train_func, thread_args)
 
-        reward_log, metric_log, design_log = self.merge_results(results)
-
-#        train_design_log, train_metric_log, train_reward_log = self.train(environment, status, initial)
+        design_log, metric_log, reward_log, models = self.merge_results(results)
         print("Training done..Evaluating: ")
-#        self.evaluate_model(environment, 100, 100, None)
-#        return train_design_log, train_metric_log, train_reward_log, self.num_episodes
+        self.evaluate_model(environment, models, 100, 100, None)
+        return design_log, metric_log, reward_log, self.num_episodes
