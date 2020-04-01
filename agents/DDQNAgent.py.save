@@ -418,13 +418,13 @@ class DDQNAgent(Agent):
         for i in range(num_threads):
             thread_args.append((specs, i, status, initial))
         train_func = lambda x: self.train(*x)
-        start = time.time()
+	start = time.time()
         with mp.Pool(processes = num_threads) as pool:
             results = pool.map(train_func, thread_args)
-
         design_log, metric_log, reward_log, models = self.merge_results(results)
         end = time.time()
         train_time = end - start
-        print("Training done in " + str(train_time) +"seconds... Evaluating: ")
-        self.evaluate_model(environment, models, 5, 100, None)
+        print(done
+        print("Training done..Evaluating: ")
+        self.evaluate_model(environment, models, 100, 100, None)
         return design_log, metric_log, reward_log, self.num_episodes
