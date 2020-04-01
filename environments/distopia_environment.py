@@ -161,7 +161,7 @@ class DistopiaEnvironment(Environment):
         '''
         self.metrics = metrics
 
-    def seed(self,seed):
+    def seed(self,seed=None):
         np.random.seed(seed)
 
     def take_step(self, new_state):

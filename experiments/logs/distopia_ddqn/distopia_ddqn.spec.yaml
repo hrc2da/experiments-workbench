@@ -2,8 +2,8 @@ agent: agents.DDQNAgent.DDQNAgent
 agent_params:
   num_metrics: 3
   tasks: [[-1,0,0]]
-  num_episodes: 1
-  episode_length: 20
+  num_episodes: 4
+  episode_length: 100
   epsilon: 0.99
   min_eps: 0.1
   discount_rate: 0.90

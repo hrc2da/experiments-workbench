@@ -282,8 +282,9 @@ class DDQNAgent(Agent):
         return sum(rewards)/num_samples, sum(max_qs)/num_samples
 
 
-    def train(self, environment, thread_id, status=None, initial=None):
-
+    def train(self, specs, thread_id, status=None, initial=None):        
+        environment  = specs['environment']()
+        environment.set_params(specs['environment_params'])
         optimizer = Adam(lr=0.001)
         model = self.build_model(optimizer)
         target_model = self.build_model(optimizer)
@@ -294,7 +295,7 @@ class DDQNAgent(Agent):
         random_states = []
         q_progress = []
         reward_progress = []
-
+        environment.seed()
         for i in range(self.num_q_eval_states):
             environment.reset(None, max_blocks_per_district = 1)
             rand_design = environment.state
@@ -414,7 +415,7 @@ class DDQNAgent(Agent):
         num_threads = os.cpu_count()
         thread_args=[]
         for i in range(num_threads):
-            thread_args.append((copy.copy(environment), i, status, initial))
+            thread_args.append((specs, i, status, initial))
         train_func = lambda x: self.train(*x)
         with mp.Pool(processes = num_threads) as pool:
             results = pool.map(train_func, thread_args)
