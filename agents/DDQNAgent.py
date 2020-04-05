@@ -1,3 +1,4 @@
+import time
 from agents import Agent
 from distopia.app.agent import VoronoiAgent
 from distopia.mapping._voronoi import ColliderException
@@ -372,7 +373,10 @@ class DDQNAgent(Agent):
     def run(self, environment, status=None, initial=None):
         # FIrst ensure that there are enough experiences in memory to sample from
 #        environment.reset(initial, max_blocks_per_district = 1)
-#        train_design_log, train_metric_log, train_reward_log = self.train(environment, status, initial)
-        print("Training done..Evaluating: ")
-        self.evaluate_model(environment, 100, 100, None)
-#        return train_design_log, train_metric_log, train_reward_log, self.num_episodes
+        start = time.time()
+        train_design_log, train_metric_log, train_reward_log = self.train(environment, status, initial)
+        end = time.time()
+        train_time = end - start
+        print("Training done in " + str(train_time) + "seconds... Evaluating: ")#
+#t         self.evaluate_model(environment, 5, 100, None)
+        return train_design_log, train_metric_log, train_reward_log, self.num_episodes
